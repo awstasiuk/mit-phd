@@ -6,5 +6,7 @@ except DistributionNotFound:
     __version__ = "NotInstalledYet"
 
 import fermion.operator
+import fermion.math
 
 from fermion.operator import Operator
+from fermion.math import Math
