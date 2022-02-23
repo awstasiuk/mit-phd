@@ -1,24 +1,43 @@
-import numpy as np
 import fermion.math as fm
+
+import numpy as np
+from math import e, pi
+
 
 class Operator:
     r"""
     A class desciribing a quadratic multi-body fermionic operator
     """
 
-    # __slots__ = ("ticker", "data", "close")
-
-    def __init__(self, n_fermion):
+    def __init__(self, n_fermion, coef=None):
         r"""
         initialize the object
         """
         self._n_fermion = n_fermion
-        self._coef = {0:0, 1:np.zeros(2*n_fermion), 2:np.zeros((2*n_fermion,2*n_fermion))}
+        if coef is not None:
+            self._coef = coef
+        else:
+            self._coef = {0:0, 1:np.zeros(2*n_fermion), 2:np.zeros((2*n_fermion,2*n_fermion))}
 
     def fourier_transform(self):
-        # TODO: Mutate the coefficient matrices for all orders to use momentum basis
-        # f_k = (1/sqrt(N)) * sum_j a_j exp(i*k*q[j])
-        return
+        r"""
+        Returns a new operator which has been Fourier transformed. That is, it is
+        rewritten in the fermionic momentum basis. This can often block diagonalize
+        Hamiltonians with periodic boundary conditions.
+        """
+        n=self.n_fermion
+        isqN = 1/np.sqrt(n)
+
+        momenta = [2*pi*(k-(n-1)/2) for k in range(n)]
+        f = np.array([[isqN * e ** (1j*q*i/n) for i in range(n)] for q in momenta])
+
+        F = np.block([[F,np.zeros((2,2))],[np.zeros((2,2)),np.conjuagate(F)]])
+
+        coef = {0:self.coef[0]}
+        coef[1] = F @ self.coef[1]
+        coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
+
+        return Operator(n,coef)
 
     def normal_order(self, highest_order=2):
         r"""
@@ -80,6 +99,27 @@ class Operator:
         return Zi
 
     @staticmethod
-    def double_quantum(B,J,n_spin):
-        # generate the NN DQ Hamiltonian
-        return
+    def double_quantum(n_spin,B=0,J=1,periodic=False):
+        r"""
+        Generate the nearest neighbor double quantum Hamiltonian quadratic form,
+        `H=B*Sz + J*Sum(XX+YY)`
+
+        `B` can be specified as a `double` or an `iterable` of length `n_spin` to
+        generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
+        conditions are set to be open. Periodic boundary conditions can be imposed
+        by setting `periodic` to `True`.
+        """
+        if hasattr(B, '__iter__'):
+            A = np.diag(B)
+        else:
+            A = -B*np.identity(n_spin)
+
+        C = J*(np.diag(np.ones(n_spin-1),1) - np.diag(np.ones(n_spin-1),-1))
+        if periodic:
+            if n_spin % 2 == 0:
+                C[1,n] = J
+                C[n,1] = -J
+            else:
+                C[1,n] = -J
+                C[n,1] = J
+        return Operator.quadratic_form(A,C)
