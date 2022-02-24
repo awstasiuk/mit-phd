@@ -26,17 +26,16 @@ class Operator:
         Hamiltonians with periodic boundary conditions.
         """
         n=self.n_fermion
-        isqN = 1/np.sqrt(n)
+        isqN = 1 / np.sqrt(n)
 
-        momenta = [2*pi*(k-(n-1)/2) for k in range(n)]
-        f = np.array([[isqN * e ** (1j*q*i/n) for i in range(n)] for q in momenta])
+        momenta = [(k-(n-1)/2) for k in range(n)]
+        f = np.array([[isqN * e ** (2j*pi*q*(i+1)/n) for q in momenta] for i in range(n)])
 
-        F = np.block([[F,np.zeros((2,2))],[np.zeros((2,2)),np.conjuagate(F)]])
+        F = np.block([[f,np.zeros((n,n))],[np.zeros((n,n)),np.conjugate(f)]])
 
         coef = {0:self.coef[0]}
-        coef[1] = F @ self.coef[1]
+        coef[1] = np.conjugate(F @ self.coef[1])
         coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
-
         return Operator(n,coef)
 
     def normal_order(self, highest_order=2):
@@ -57,6 +56,29 @@ class Operator:
                     self._coef[0] += int(i==j) * mat[i+n,j+n]
                     mat[i+n,j+n]=0
         self._coef[2]=mat
+
+    def trace(self):
+        r"""
+        Computes the trace divided by 2^n_fermion, so as to avoid things needlessly
+        blowing up.
+        """
+        tr = self.coef[0]
+        tr += sum(self.coef[2][i,i] for i in range(2*self.n_fermion))
+        return tr
+
+    def commutator(self,other):
+        r"""
+        computes the commutator of two operators, returns the resulting operator,
+        C = [self, other].
+        """
+        return
+
+    def anti_commutator(self,other):
+        r"""
+        computes the anit-commutator of two operators, returns the resulting operator,
+        C = {self, other}.
+        """
+        return
 
     @property
     def n_fermion(self):
@@ -80,8 +102,20 @@ class Operator:
             raise ValueError("test 3")
 
         q = Operator(n_fermion)
-        q[2] = np.block([[A,-np.conjugate(B)],[B,-np.conjuagate(A)]])
+        q._coef[2] = np.block([[A,-np.conjugate(B)],[B,-np.conjugate(A)]])
         return q
+
+    @staticmethod
+    def creation_op(index, n_spin):
+        a = Operator(n_spin)
+        a._coef[1][index+n_spin] = 1
+        return a
+
+    @staticmethod
+    def annihilation_op(index, n_spin):
+        adag = Operator(n_spin)
+        adag._coef[1][index] = 1
+        return adag
 
     @staticmethod
     def global_Z(n_spin):
@@ -117,9 +151,29 @@ class Operator:
         C = J*(np.diag(np.ones(n_spin-1),1) - np.diag(np.ones(n_spin-1),-1))
         if periodic:
             if n_spin % 2 == 0:
-                C[1,n] = J
-                C[n,1] = -J
+                C[0,n_spin-1] = J
+                C[n_spin-1,0] = -J
             else:
-                C[1,n] = -J
-                C[n,1] = J
+                C[0,n_spin-1] = -J
+                C[n_spin-1,0] = J
         return Operator.quadratic_form(A,C)
+
+    def __add__(self, other):
+        if isinstance(other,Operator) and self.n_fermion == other.n_fermion:
+            add = Operator(self.n_fermion)
+            for i in range(3):
+                add._coef[i] = self.coef[i] + other.coef[i]
+            return add
+        else:
+            raise ValueError("Operator addition must be between ops with same number of fermions")
+
+    def __mult__(self, other):
+        if isinstance(other,Operator):
+            raise ValueError("non-scalar multiplication not yet implemented")
+        elif type(other) in (int, float, complex):
+            mult = Operator(self.n_fermion)
+            for i in range(3):
+                mult._coef[i] = other * self.coef[i]
+            return mult
+        else:
+            raise ValueError("type not recognized for multiplication")

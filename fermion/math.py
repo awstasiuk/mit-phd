@@ -9,3 +9,10 @@ class Math:
         if int(i) != i or int(j) !=j:
             raise ValueError("arguments should be integers")
         return int(i==j)
+
+    @staticmethod
+    def chop(expr, delta=10**-10):
+        if hasattr(expr, '__iter__'):
+            return [Math.chop(x) for x in expr]
+        else:
+            return 0 if -delta <= abs(expr) <= delta else expr
