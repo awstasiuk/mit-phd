@@ -57,6 +57,40 @@ class Operator:
                     mat[i+n,j+n]=0
         self._coef[2]=mat
 
+    def jordan_wigner(self):
+        r"""
+        Returns a tuple of the diagonalized quadratic fermionic operator and the diagonalizing
+        Jordan--Wigner matrix, which is block diagonal of the form
+        T = [[G, H], [H.conj, G.conj]], where T*M*T.dag=D is diagonal, and the blocks
+        satisfy
+        G*G.T + H*H.T = Identity
+        G*H.T + H*G.T = 0
+
+        WARNING: Puts the operator into normal ordering
+        """
+        if not np.allclose(self.coef[1],0):
+            raise ValueError("Not a quadratic fermionic operator")
+        self.normal_order()
+        n=self.n_fermion
+
+        # prepare the right matrix to diagonalize
+        alpha = self.coef[2][0:n,0:n]
+        beta = -2*np.conj(self.coef[2][0:n,n:2*n])
+        mat = (alpha-beta) @ (alpha + beta)
+
+        # diagonalize and extract the correctly ordered operators
+        sqr_eig, phi = np.linalg.eigh(mat)
+        psi = [(1/np.sqrt(sqr_eig[i]))*(alpha-beta) @ phi[:,i] for i in range(n)]
+        psi = np.array(psi)
+        phi = phi.T
+
+        # form the diagonalizing matrix, and the resulting diagonal operator.
+        G = 0.5*(phi+psi)
+        H = 0.5*(phi-psi)
+        T = np.block([[G, H], [np.conj(H), np.conj(G)]])
+        return Operator.disorder_Z(n,-0.5*np.sqrt(sqr_eig)), T
+
+
     def trace(self):
         r"""
         Computes the trace divided by 2^n_fermion, so as to avoid things needlessly
@@ -118,12 +152,28 @@ class Operator:
         return adag
 
     @staticmethod
+    def number_op(index, n_spin):
+        N = Operator(n_spin)
+        N._coef[2][index,index] = 1
+        return N
+
+    @staticmethod
     def global_Z(n_spin):
         Z = Operator(n_spin)
         for i in range(n_spin):
             Z._coef[2][i,i]=-1
             Z._coef[2][i+n_spin,i+n_spin]=1
         return Z
+
+    @staticmethod
+    def disorder_Z(n_spin, field):
+        if len(field) is not n_spin:
+            raise ValueError("vector of disorder must equal number of spins")
+        dZ = Operator(n_spin)
+        for idx,B in enumerate(field):
+            dZ._coef[2][idx,idx] = -B
+            dZ._coef[2][idx+n_spin,idx+n_spin] = B
+        return dZ
 
     @staticmethod
     def local_Z(index, n_spin):
