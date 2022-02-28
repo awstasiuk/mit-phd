@@ -123,6 +123,17 @@ class Operator:
         return
 
     @property
+    def is_quadratic(self):
+        r"""
+        Checks if there are non-zero components outside of the identity or quadratic form
+        terms.
+        """
+        for order, mat in self.coef.items():
+            if order not in (0, 2) and not np.allclose(mat, 0):
+                return False
+        return True
+
+    @property
     def n_fermion(self):
         return self._n_fermion
 
