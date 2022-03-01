@@ -9,11 +9,12 @@ class Operator:
     A class desciribing a quadratic multi-body fermionic operator
     """
 
-    def __init__(self, n_fermion, coef=None):
+    def __init__(self, n_fermion, order=(0, 2), coef=None):
         r"""
         initialize the object
         """
         self._n_fermion = n_fermion
+        self._order = order
         if coef is not None:
             self._coef = coef
         else:
@@ -140,6 +141,10 @@ class Operator:
     @property
     def coef(self):
         return self._coef
+
+    @property
+    def order(self):
+        return self._order
 
     @staticmethod
     def quadratic_form(A, B):
