@@ -1,8 +1,8 @@
-import fermion.math as fm
-import fermion.operator as op
+from fermion.math import Math as fm
+from fermion.operator import Operator
 
 import numpy as np
-from math import e, pi
+from math import e, pi, ceil
 
 
 class Unitary:
@@ -15,7 +15,7 @@ class Unitary:
         r"""
         initialize the object, by preparing a time mesh and diagonalizing the hamiltonian
         """
-        if not ham.is_quadratic():
+        if not ham.is_quadratic:
             raise ValueError("Invalid Hamiltonian, must be quadratic")
         self._ham = ham
 
@@ -24,30 +24,44 @@ class Unitary:
         self._n_steps = ceil(tmax / dt)
         self._t = [i * dt for i in range(self._n_steps)]
 
-        diag, T = self.ham.jordan_wigner()
+        diag, T = ham.jordan_wigner()
         self._eigen = diag.coef[2].diagonal(0)[0 : ham.n_fermion]
-        self._G = T.coef[2][0 : ham.n_fermion, 0 : ham.n_fermion]
-        self._H = T.coef[2][0 : ham.n_fermion, ham.n_fermion : 2 * ham.n_fermion]
+        self._G = T[0 : ham.n_fermion, 0 : ham.n_fermion]
+        self._H = T[0 : ham.n_fermion, ham.n_fermion : 2 * ham.n_fermion]
+
+        self._cache = {"U1": {}, "U2": {}}
 
     def U1(self, t):
         r"""
         the N*N operator representing time evolution of the annihilation operators in the
         original fermionic basis
         """
-        return (
-            fm.adj(self.G) @ fm.exp_diag(self.eigen, 2 * t) @ G
+        u1 = self._cache["U1"].get(t)
+        if u1 is not None:
+            return u1
+        u1 = (
+            fm.adj(self.G) @ fm.exp_diag(self.eigen, 2 * t) @ self.G
             + fm.adj(self.H) @ fm.exp_diag(self.eigen, -2 * t) @ self.H
         )
+        self._cache["U1"][t] = u1
+        return u1
 
     def U2(self, t):
         r"""
         the N*N operator representing time evolution of the creations operators in the
         original fermionic basis.
         """
-        return (
+        u2 = self._cache["U2"].get(t)
+        if u2 is not None:
+            return u2
+        u2 = (
             fm.adj(self.G) @ fm.exp_diag(self.eigen, 2 * t) @ self.H
             + fm.adj(self.H) @ fm.exp_diag(self.eigen, -2 * t) @ self.G
         )
+        self._cache["U2"][t] = u2
+        return u2
+
+        return
 
     def U(self, t):
         r"""
@@ -69,7 +83,11 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            np.abs(self.U1(t)[idx1, idx2]) ** 2 - np.abs(self.U2(t)[idx1, idx2]) ** 2
+            (1 / self.hamiltonian.n_fermion)
+            * (
+                np.abs(self.U1(t)[idx1, idx2]) ** 2
+                - np.abs(self.U2(t)[idx1, idx2]) ** 2
+            )
             for t in self.t
         ]
 
@@ -82,9 +100,46 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            np.linalg.norm(self.U1(t)) ** 2 - np.linalg.norm(self.U2(t)) ** 2
+            (1 / self.hamiltonian.n_fermion)
+            * (np.linalg.norm(self.U1(t)) ** 2 - np.linalg.norm(self.U2(t)) ** 2)
             for t in self.t
         ]
+
+    def evolve_op(self, op, t):
+        r"""
+        Propagates the fermionic operator `op` to a future time `t` via the Hamiltonian.
+
+        returns a :py:class:`fermion.Operator`
+        """
+        if self.hamiltonian.n_fermion != op.n_fermion:
+            raise ValueError("Dimension mismatch!")
+
+        coef = {0: op.coef[0]}
+        coef[1] = self.U(t) @ op.coef[1]
+        coef[2] = fm.adj(self.U(t)) @ op.coef[2] @ self.U(t)
+
+        return Operator(op.n_fermion, coef)
+
+    def populate_cache(self):
+        r"""
+        pre-computes the time evolution blocks U1 and U2 and caches the results for each
+        value in this instance's time mesh. This may be useful if these matrices are going
+        to be used often and take a while to compute, assuming memory is cheaper than clocks
+        and you don't want to populate the cache on the fly.
+        """
+        if len(self._cache) == 0:
+            for t in self.t:
+                self.u1(t)
+                self.u2(t)
+        else:
+            print("Cache is already populated with at least one element.")
+
+    def clear_cache(self):
+        r"""
+        clears the cache, possibly freeing up memory if needed.
+        """
+        for key in self._cache.keys():
+            self._cache[key] = {}
 
     @property
     def hamiltonian(self):

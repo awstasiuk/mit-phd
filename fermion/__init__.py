@@ -7,6 +7,8 @@ except DistributionNotFound:
 
 import fermion.operator
 import fermion.math
+import fermion.unitary
 
 from fermion.operator import Operator
 from fermion.math import Math
+from fermion.unitary import Unitary
