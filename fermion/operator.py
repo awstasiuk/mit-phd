@@ -9,20 +9,20 @@ class Operator:
     A class desciribing a quadratic multi-body fermionic operator
     """
 
-    def __init__(self, n_fermion, order=(0, 2), coef=None):
+    def __init__(self, n_fermion, coef=None):
         r"""
         initialize the object
         """
         self._n_fermion = n_fermion
-        self._order = order
         if coef is not None:
             self._coef = coef
         else:
             self._coef = {
                 0: 0,
-                1: np.zeros(2 * n_fermion),
                 2: np.zeros((2 * n_fermion, 2 * n_fermion)),
             }
+        self._components = list(self._coef.keys())
+        self._order = max(self._components)
 
     def fourier_transform(self):
         r"""
@@ -48,24 +48,21 @@ class Operator:
         coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
         return Operator(n, coef)
 
-    def normal_order(self, highest_order=2):
+    def normal_order(self):
         r"""
         Puts the up to the `highest_order` part of the operator into normal order,
         with a default of 2, which only inspects the quadratic part.
         """
-        if highest_order > 2:
-            raise ValueError("Not implemented yet, woops")
-        elif highest_order < 2:
-            return
-        mat = self.coef[2]
-        n = self.n_fermion
-        for i in range(n):
-            for j in range(n):
-                if mat[i, j] != 0:
-                    mat[j, i] += -mat[i + n, j + n]
-                    self._coef[0] += int(i == j) * mat[i + n, j + n]
-                    mat[i + n, j + n] = 0
-        self._coef[2] = mat
+        if 2 in self.components:
+            mat = self.coef[2]
+            n = self.n_fermion
+            for i in range(n):
+                for j in range(n):
+                    if mat[i, j] != 0:
+                        mat[j, i] += -mat[i + n, j + n]
+                        self._coef[0] += int(i == j) * mat[i + n, j + n]
+                        mat[i + n, j + n] = 0
+            self.set_component(2, mat)
 
     def jordan_wigner(self):
         r"""
@@ -134,6 +131,29 @@ class Operator:
                 return False
         return True
 
+    def set_component(self, order, tensor=None):
+        r"""
+        If this operator does not have a component of this order, it adds the `order`--dimensional
+        array needed to store it, and updates the highest order stored by this operator, if
+        necessary. By specifying `tensor` as a properly sized and shapped array, the stored
+        tensor can be specified, and in the case of an existing order, will overwrite the stored
+        data.
+        """
+        if tensor is None:
+            self._coef[order] = np.zeros([2 * self.n_fermion for i in range(order)])
+        elif len(tensor.shape) == order and all(
+            [tensor.shape(i) == 2 * self.n_fermion for i in range(order)]
+        ):
+            self._coef[order] = tensor
+        else:
+            raise ValueError("Shape of tensor is invalid for desired order")
+
+        if order not in self.components:
+            self._components.append(order)
+
+        if order > self.order:
+            self._order = order
+
     @property
     def n_fermion(self):
         return self._n_fermion
@@ -145,6 +165,10 @@ class Operator:
     @property
     def order(self):
         return self._order
+
+    @property
+    def components(self):
+        return self._components
 
     @staticmethod
     def quadratic_form(A, B):
