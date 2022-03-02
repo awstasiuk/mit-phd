@@ -53,6 +53,8 @@ class Operator:
         Puts the up to the `highest_order` part of the operator into normal order,
         with a default of 2, which only inspects the quadratic part.
         """
+        if 0 not in self.components:
+            self.set_component(0)
         if 2 in self.components:
             mat = self.coef[2]
             n = self.n_fermion
@@ -75,7 +77,7 @@ class Operator:
 
         WARNING: Puts the operator into normal ordering
         """
-        if not np.allclose(self.coef[1], 0):
+        if 1 in self.components and not np.allclose(self.coef[1], 0):
             raise ValueError("Not a quadratic fermionic operator")
         self.normal_order()
         n = self.n_fermion
@@ -103,7 +105,7 @@ class Operator:
         blowing up.
         """
         tr = self.coef[0]
-        tr += sum(self.coef[2][i, i] for i in range(2 * self.n_fermion))
+        tr += sum(self.coef[2][i, i] / 2 for i in range(2 * self.n_fermion))
         return tr
 
     def commutator(self, other):
@@ -142,7 +144,7 @@ class Operator:
         if tensor is None:
             self._coef[order] = np.zeros([2 * self.n_fermion for i in range(order)])
         elif len(tensor.shape) == order and all(
-            [tensor.shape(i) == 2 * self.n_fermion for i in range(order)]
+            [tensor.shape[i] == 2 * self.n_fermion for i in range(order)]
         ):
             self._coef[order] = tensor
         else:
@@ -183,8 +185,9 @@ class Operator:
         if shA[0] != shA[1] or shB[0] != shB[1]:
             raise ValueError("test 3")
 
-        q = Operator(n_fermion)
-        q._coef[2] = np.block([[A, -np.conjugate(B)], [B, -np.conjugate(A)]])
+        q = Operator(
+            n_fermion, {2: np.block([[A, -np.conjugate(B)], [B, -np.conjugate(A)]])}
+        )
         return q
 
     @staticmethod
