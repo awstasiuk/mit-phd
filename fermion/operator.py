@@ -80,7 +80,7 @@ class Operator:
 
         WARNING: Puts the operator into normal ordering
         """
-        if 1 in self.components and not np.allclose(self.coef[1], 0):
+        if not self.is_quadratic:
             raise ValueError("Not a quadratic fermionic operator")
         self.normal_order()
         n = self.n_fermion
