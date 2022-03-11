@@ -27,3 +27,7 @@ class Math:
     def exp_diag(vec, t):
         diag = np.exp(-1j * vec * t)
         return np.diag(diag)
+
+    @staticmethod
+    def tensor_change_of_basis(tensor, matrix):
+        return tensor
