@@ -43,12 +43,13 @@ class Operator:
 
         F = np.block([[f, np.zeros((n, n))], [np.zeros((n, n)), np.conjugate(f)]])
         coef = {}
-        if 0 in self.components:
-            coef[0] = self.coef[0]
-        if 1 in self.components:
-            coef[1] = np.conjugate(F @ self.coef[1])
-        if 2 in self.components:
-            coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
+        for k in self.components:
+            if k == 0:
+                coef[0] = self.coef[0]
+            elif k == 1:
+                coef[1] = F @ self.coef[1]
+            else:
+                coef[k] = fm.tensor_change_of_basis(self.coef[k], F)
         return Operator(n, coef)
 
     def normal_order(self):
@@ -56,6 +57,7 @@ class Operator:
         Puts the up to the `highest_order` part of the operator into normal order,
         with a default of 2, which only inspects the quadratic part.
         """
+        # TODO: FIX THIS... and check if its working LOL
         if 0 not in self.components:
             self.set_component(0)
         if 2 in self.components:
@@ -63,18 +65,18 @@ class Operator:
             n = self.n_fermion
             for i in range(n):
                 for j in range(n):
-                    if mat[i, j] != 0:
-                        mat[j, i] += -mat[i + n, j + n]
-                        self._coef[0] += int(i == j) * mat[i + n, j + n]
-                        mat[i + n, j + n] = 0
+                    if mat[i, j + n] != 0:
+                        mat[j + n, i] += -mat[i, j + n]
+                        self._coef[0] += int(i == j) * mat[i, j + n]
+                        mat[i, j + n] = 0
             self.set_component(2, mat)
 
     def jordan_wigner(self):
         r"""
-        Returns a tuple of the diagonalized quadratic fermionic operator and the diagonalizing
-        Jordan--Wigner matrix, which is block diagonal of the form
-        T = [[G, H], [H.conj, G.conj]], where T*M*T.dag=D is diagonal, and the blocks
-        satisfy
+        Returns a tuple of the diagonalized quadratic fermionic operator and the conjugate
+        transpose of the diagonalizing Jordan--Wigner matrix, which is block diagonal of the form
+        T = [[G, H], [H.conj, G.conj]], and the blocks satisfy
+
         G*G.T + H*H.T = Identity
         G*H.T + H*G.T = 0
 
@@ -86,8 +88,8 @@ class Operator:
         n = self.n_fermion
 
         # prepare the right matrix to diagonalize
-        alpha = self.coef[2][0:n, 0:n]
-        beta = -2 * np.conj(self.coef[2][0:n, n : 2 * n])
+        alpha = self.coef[2][n : 2 * n, 0:n]
+        beta = 2 * self.coef[2][0:n, 0:n]
         mat = (alpha - beta) @ (alpha + beta)
 
         # diagonalize and extract the correctly ordered operators
@@ -100,7 +102,7 @@ class Operator:
         G = 0.5 * (phi + psi)
         H = 0.5 * (phi - psi)
         T = np.block([[G, H], [np.conj(H), np.conj(G)]])
-        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), T
+        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), np.conj(T.T)
 
     def trace(self):
         r"""
@@ -108,7 +110,12 @@ class Operator:
         blowing up.
         """
         tr = self.coef[0]
-        tr += sum(self.coef[2][i, i] / 2 for i in range(2 * self.n_fermion))
+        tr += sum(
+            self.coef[2][i + self.n_fermion, i] / 2 for i in range(self.n_fermion)
+        )
+        tr += sum(
+            self.coef[2][i, i + self.n_fermion] / 2 for i in range(self.n_fermion)
+        )
         return tr
 
     def commutator(self, other):
@@ -206,9 +213,7 @@ class Operator:
         if shA[0] != shA[1] or shB[0] != shB[1]:
             raise ValueError("the matrices must be square")
 
-        q = Operator(
-            n_fermion, {2: np.block([[A, -np.conjugate(B)], [B, -np.conjugate(A)]])}
-        )
+        q = Operator(n_fermion, {2: np.block([[B, -np.conj(A)], [A, -np.conj(B)]])})
         return q
 
     @staticmethod
@@ -226,16 +231,12 @@ class Operator:
     @staticmethod
     def number_op(index, n_spin):
         temp = np.zeros((2 * n_spin, 2 * n_spin))
-        temp[index, index] = 1
+        temp[index + n_spin, index] = 1
         return Operator(n_spin, {2: temp})
 
     @staticmethod
     def global_Z(n_spin):
-        temp = np.zeros((2 * n_spin, 2 * n_spin))
-        for i in range(n_spin):
-            temp[i, i] = -1
-            temp[i + n_spin, i + n_spin] = 1
-        return Operator(n_spin, {2: temp})
+        return Operator.disorder_Z(n_spin, np.ones(n_spin))
 
     @staticmethod
     def disorder_Z(n_spin, field):
@@ -243,16 +244,16 @@ class Operator:
             raise ValueError("vector of disorder must equal number of spins")
         temp = np.zeros((2 * n_spin, 2 * n_spin))
         for idx, B in enumerate(field):
-            temp[idx, idx] = -B
-            temp[idx + n_spin, idx + n_spin] = B
+            temp[idx, idx + n_spin] = B
+            temp[idx + n_spin, idx] = -B
         return Operator(n_spin, {2: temp})
 
     @staticmethod
     def local_Z(index, n_spin):
         Zi = Operator(n_spin)
         temp = np.zeros((2 * n_spin, 2 * n_spin))
-        temp[index - 1, index - 1] = -1
-        temp[index - 1 + n_spin, index - 1 + n_spin] = 1
+        temp[index, index + n_spin] = 1
+        temp[index + n_spin, index] = -1
         return Operator(n_spin, {2: temp})
 
     @staticmethod

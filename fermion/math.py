@@ -32,9 +32,12 @@ class Math:
     def tensor_change_of_basis(tensor, matrix):
         new = np.zeros(tensor.shape)
         rank = len(tensor.shape)
-        for idx, _ in np.ndenumerate(new):
+        for idx1, _ in np.ndenumerate(new):
             temp = 0
-            for dummy, val in np.ndenumerate(tensor):
-                temp += val * np.prod([matrix[dummy[i], idx[i]] for i in range(rank)])
-            new[idx] = temp
+            for idx2, val in np.ndenumerate(tensor):
+                if val != 0:
+                    temp += val * np.prod(
+                        [matrix[idx2[i], idx1[i]] for i in range(rank)]
+                    )
+            new[idx1] = temp
         return new
