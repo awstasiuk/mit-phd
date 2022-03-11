@@ -1,4 +1,4 @@
-import fermion.math as fm
+from fermion.math import Math as fm
 
 import numpy as np
 from math import e, pi
@@ -42,10 +42,13 @@ class Operator:
         )
 
         F = np.block([[f, np.zeros((n, n))], [np.zeros((n, n)), np.conjugate(f)]])
-
-        coef = {0: self.coef[0]}
-        coef[1] = np.conjugate(F @ self.coef[1])
-        coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
+        coef = {}
+        if 0 in self.components:
+            coef[0] = self.coef[0]
+        if 1 in self.components:
+            coef[1] = np.conjugate(F @ self.coef[1])
+        if 2 in self.components:
+            coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
         return Operator(n, coef)
 
     def normal_order(self):
@@ -133,6 +136,15 @@ class Operator:
                 return False
         return True
 
+    def compactify(self, tol=10**-10):
+        ords = self.components
+        for n in ords:
+            temp = fm.chop(self.coef[n], delta=tol)
+            if np.allclose(temp, 0):
+                self.remove_component(n)
+            else:
+                self.set_component(n, temp)
+
     def set_component(self, order, tensor=None):
         r"""
         If this operator does not have a component of this order, it adds the `order`--dimensional
@@ -156,6 +168,15 @@ class Operator:
         if order > self.order:
             self._order = order
 
+    def remove_component(self, order):
+        if order in self.components:
+            del self.coef[order]
+            self._components.remove(order)
+            self.update_order()
+
+    def update_order(self):
+        self._order = max(self.components)
+
     @property
     def n_fermion(self):
         return self._n_fermion
@@ -177,13 +198,13 @@ class Operator:
         n_fermion = len(A)
 
         if n_fermion != len(B):
-            raise ValueError("Test")
+            raise ValueError("The matrices must be of the same length")
         shA = A.shape
         shB = B.shape
         if len(shA) != 2 and len(shB) != 2:
-            raise ValueError("test 2")
+            raise ValueError("the matrices must be second order (rank 2)")
         if shA[0] != shA[1] or shB[0] != shB[1]:
-            raise ValueError("test 3")
+            raise ValueError("the matrices must be square")
 
         q = Operator(
             n_fermion, {2: np.block([[A, -np.conjugate(B)], [B, -np.conjugate(A)]])}
@@ -192,46 +213,47 @@ class Operator:
 
     @staticmethod
     def creation_op(index, n_spin):
-        a = Operator(n_spin)
-        a._coef[1][index + n_spin] = 1
-        return a
+        temp = np.zeros(2 * n_spin)
+        temp[index + n_spin] = 1
+        return Operator(n_spin, {1: temp})
 
     @staticmethod
     def annihilation_op(index, n_spin):
-        adag = Operator(n_spin)
-        adag._coef[1][index] = 1
-        return adag
+        temp = np.zeros(2 * n_spin)
+        temp[index] = 1
+        return Operator(n_spin, {1: temp})
 
     @staticmethod
     def number_op(index, n_spin):
-        N = Operator(n_spin)
-        N._coef[2][index, index] = 1
-        return N
+        temp = np.zeros((2 * n_spin, 2 * n_spin))
+        temp[index, index] = 1
+        return Operator(n_spin, {2: temp})
 
     @staticmethod
     def global_Z(n_spin):
-        Z = Operator(n_spin)
+        temp = np.zeros((2 * n_spin, 2 * n_spin))
         for i in range(n_spin):
-            Z._coef[2][i, i] = -1
-            Z._coef[2][i + n_spin, i + n_spin] = 1
-        return Z
+            temp[i, i] = -1
+            temp[i + n_spin, i + n_spin] = 1
+        return Operator(n_spin, {2: temp})
 
     @staticmethod
     def disorder_Z(n_spin, field):
         if len(field) is not n_spin:
             raise ValueError("vector of disorder must equal number of spins")
-        dZ = Operator(n_spin)
+        temp = np.zeros((2 * n_spin, 2 * n_spin))
         for idx, B in enumerate(field):
-            dZ._coef[2][idx, idx] = -B
-            dZ._coef[2][idx + n_spin, idx + n_spin] = B
-        return dZ
+            temp[idx, idx] = -B
+            temp[idx + n_spin, idx + n_spin] = B
+        return Operator(n_spin, {2: temp})
 
     @staticmethod
     def local_Z(index, n_spin):
         Zi = Operator(n_spin)
-        Zi._coef[2][index - 1, index - 1] = -1
-        Zi._coef[2][index - 1 + n_spin, index - 1 + n_spin] = 1
-        return Zi
+        temp = np.zeros((2 * n_spin, 2 * n_spin))
+        temp[index - 1, index - 1] = -1
+        temp[index - 1 + n_spin, index - 1 + n_spin] = 1
+        return Operator(n_spin, {2: temp})
 
     @staticmethod
     def double_quantum(n_spin, B=0, J=1, periodic=False):
@@ -261,10 +283,16 @@ class Operator:
 
     def __add__(self, other):
         if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
-            add = Operator(self.n_fermion)
-            for i in range(3):
-                add._coef[i] = self.coef[i] + other.coef[i]
-            return add
+            comps = list(set(self.components).union(other.components))
+            coef = {}
+            for n in comps:
+                if n in self.components and n not in other.components:
+                    coef[n] = self.coef[n]
+                elif n not in self.components and n in other.components:
+                    coef[n] = other.coef[n]
+                else:
+                    coef[n] = self.coef[n] + other.coef[n]
+            return Operator(self.n_fermion, coef)
         else:
             raise ValueError(
                 "Operator addition must be between ops with same number of fermions"
@@ -275,7 +303,7 @@ class Operator:
             raise ValueError("non-scalar multiplication not yet implemented")
         elif type(other) in (int, float, complex):
             mult = Operator(self.n_fermion)
-            for i in range(3):
+            for i in self.components:
                 mult._coef[i] = other * self.coef[i]
             return mult
         else:

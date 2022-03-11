@@ -15,7 +15,7 @@ class Math:
     @staticmethod
     def chop(expr, delta=10**-10):
         if hasattr(expr, "__iter__"):
-            return [Math.chop(x) for x in expr]
+            return np.array([Math.chop(x) for x in expr])
         else:
             return 0 if -delta <= abs(expr) <= delta else expr
 
