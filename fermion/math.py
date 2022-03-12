@@ -30,7 +30,7 @@ class Math:
 
     @staticmethod
     def tensor_change_of_basis(tensor, matrix):
-        new = np.zeros(tensor.shape)
+        new = np.zeros(tensor.shape, dtype=np.complex)
         rank = len(tensor.shape)
         for idx1, _ in np.ndenumerate(new):
             temp = 0

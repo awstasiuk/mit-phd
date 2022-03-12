@@ -25,7 +25,7 @@ class Unitary:
         self._t = [i * dt for i in range(self._n_steps)]
 
         diag, T = ham.jordan_wigner()
-        self._eigen = diag.coef[2].diagonal(0)[0 : ham.n_fermion]
+        self._eigen = diag.coef[2].diagonal(-ham.n_fermion)
         self._G = T[0 : ham.n_fermion, 0 : ham.n_fermion]
         self._H = T[0 : ham.n_fermion, ham.n_fermion : 2 * ham.n_fermion]
 
