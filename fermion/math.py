@@ -14,7 +14,7 @@ class Math:
 
     @staticmethod
     def chop(expr, delta=10**-10):
-        if hasattr(expr, "__iter__"):
+        if hasattr(expr, "__iter__") and len(expr.shape) > 0:
             return np.array([Math.chop(x) for x in expr])
         else:
             return 0 if -delta <= abs(expr) <= delta else expr
@@ -66,8 +66,8 @@ class Math:
         for idx in idx_str:
             if (idx + n) % (2 * n) not in idx_str:
                 return 0
-        for i in range(len(idx_str) - 1):
-            if idx_str[i] == idx_str[i + 1]:
+        for i in range(len(idx_str)):
+            if idx_str[i] == idx_str[(i + 1) % len(idx_str)]:
                 return 0
         if len(idx_str) == 2:
             return 0.5
@@ -76,6 +76,10 @@ class Math:
             if idx_str[0] in idx_str[1 : len(idx_str)]:
                 return 0.5
             else:
-                return 0.25
+                for j in range(3):
+                    if idx_str[j] == (idx_str[j + 1] + n) % (2 * n):
+                        return 0.25
+                else:
+                    return -0.25
 
         return 0

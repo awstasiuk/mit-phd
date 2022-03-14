@@ -57,7 +57,6 @@ class Operator:
         Puts the up to the `highest_order` part of the operator into normal order,
         with a default of 2, which only inspects the quadratic part.
         """
-        # TODO: FIX THIS... and check if its working LOL
         if 0 not in self.components:
             self.set_component(0)
         if 2 not in self.components:
@@ -77,8 +76,8 @@ class Operator:
         if 4 in self.components:
             mat = self.coef[4]
             n = self.n_fermion
+            new = np.zeros(mat.shape, dtype=np.complex)
             for idx, val in np.ndenumerate(mat):
-                new = np.zeros(mat.shape, dtype=np.complex)
                 if val != 0:
                     # normal order the 4 body term, keeping track of swaps
                     old = list(idx)
@@ -99,20 +98,30 @@ class Operator:
                                     two_body_idx.pop(j)
                                     two_body_idx.pop(i)
                                     phase = (-1) ** (i - j + 1)
+                                    if two_body_idx[0] < two_body_idx[1]:
+                                        two_body_idx.reverse()
+                                        phase *= -1
                                     self._coef[2][tuple(two_body_idx)] += val * phase
 
                     # compute any double contractions
                     if fm.fermion_weight(idx, n) == 0:
                         if idx[0] < n and idx[1] < n:
                             self._coef[0] += (
-                                -1 * val * (idx[0] == idx[2]) * (idx[1] == idx[3])
+                                -1
+                                * val
+                                * (idx[0] == (idx[2] - n))
+                                * (idx[1] == (idx[3] - n))
                             )
                             self._coef[0] += (
-                                val * (idx[0] == idx[3]) * (idx[1] == idx[2])
+                                val
+                                * (idx[0] == (idx[3] - n))
+                                * (idx[1] == (idx[2] - n))
                             )
                         elif idx[0] < n and idx[2] < n:
                             self._coef[0] += (
-                                val * (idx[0] == idx[1]) * (idx[2] == idx[3])
+                                val
+                                * (idx[0] == (idx[1] - n))
+                                * (idx[2] == (idx[3] - n))
                             )
             self.set_component(4, new)
         return self
