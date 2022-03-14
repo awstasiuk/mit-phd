@@ -114,9 +114,14 @@ class Unitary:
         if self.hamiltonian.n_fermion != op.n_fermion:
             raise ValueError("Dimension mismatch!")
 
-        coef = {0: op.coef[0]}
-        coef[1] = self.U(t) @ op.coef[1]
-        coef[2] = fm.adj(self.U(t)) @ op.coef[2] @ self.U(t)
+        coef = {}
+        for k in op.components:
+            if k == 0:
+                coef[0] = op.coef[0]
+            elif k == 1:
+                coef[1] = self.U(t) @ op.coef[1]
+            else:
+                coef[k] = fm.tensor_change_of_basis(op.coef[k], np.conj(self.U(t).T))
 
         return Operator(op.n_fermion, coef)
 

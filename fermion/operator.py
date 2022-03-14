@@ -109,13 +109,23 @@ class Operator:
         Computes the trace divided by 2^n_fermion, so as to avoid things needlessly
         blowing up.
         """
-        tr = self.coef[0]
-        tr += sum(
-            self.coef[2][i + self.n_fermion, i] / 2 for i in range(self.n_fermion)
-        )
-        tr += sum(
-            self.coef[2][i, i + self.n_fermion] / 2 for i in range(self.n_fermion)
-        )
+        tr = 0
+        if 0 in self.components:
+            tr += self.coef[0]
+
+        if 2 in self.components:
+            tr += sum(
+                self.coef[2][i + self.n_fermion, i] / 2 for i in range(self.n_fermion)
+            )
+            tr += sum(
+                self.coef[2][i, i + self.n_fermion] / 2 for i in range(self.n_fermion)
+            )
+
+        if 4 in self.components:
+            for idx, val in np.ndenumerate(self.coef[4]):
+                if val != 0 and fm.fermion_weight(idx, self.n_fermion) == 0:
+                    tr += val * fm.trace_weight(idx, self.n_fermion)
+
         return tr
 
     def commutator(self, other):
@@ -123,14 +133,14 @@ class Operator:
         computes the commutator of two operators, returns the resulting operator,
         C = [self, other].
         """
-        return
+        return self * other - other * self
 
     def anti_commutator(self, other):
         r"""
         computes the anit-commutator of two operators, returns the resulting operator,
         C = {self, other}.
         """
-        return
+        return self * other + other * self
 
     @property
     def is_quadratic(self):
@@ -299,13 +309,47 @@ class Operator:
                 "Operator addition must be between ops with same number of fermions"
             )
 
-    def __mult__(self, other):
-        if isinstance(other, Operator):
-            raise ValueError("non-scalar multiplication not yet implemented")
+    def __sub__(self, other):
+        if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
+            comps = list(set(self.components).union(other.components))
+            coef = {}
+            for n in comps:
+                if n in self.components and n not in other.components:
+                    coef[n] = self.coef[n]
+                elif n not in self.components and n in other.components:
+                    coef[n] = -1 * other.coef[n]
+                else:
+                    coef[n] = self.coef[n] - other.coef[n]
+            return Operator(self.n_fermion, coef)
+        else:
+            raise ValueError(
+                "Operator addition must be between ops with same number of fermions"
+            )
+
+    def __mul__(self, other):
+        coef = {}
+        if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
+            for rS in self.components:
+                for rO in other.components:
+                    if rS + rO in coef.keys():
+                        coef[rS + rO] += fm.tensor_product(
+                            self.coef[rS], other.coef[rO]
+                        )
+                    else:
+                        coef[rS + rO] = fm.tensor_product(self.coef[rS], other.coef[rO])
+            return Operator(self.n_fermion, coef)
         elif type(other) in (int, float, complex):
-            mult = Operator(self.n_fermion)
             for i in self.components:
-                mult._coef[i] = other * self.coef[i]
-            return mult
+                coef[i] = other * self.coef[i]
+            return Operator(self.n_fermion, coef)
         else:
             raise ValueError("type not recognized for multiplication")
+
+    def __eq__(self, other):
+        if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
+            if self.components == other.components:
+                for r in self.components:
+                    if not np.allclose(self.coef[r], other.coef[r]):
+                        return False
+                return True
+        return False
