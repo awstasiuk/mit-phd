@@ -60,6 +60,9 @@ class Operator:
         # TODO: FIX THIS... and check if its working LOL
         if 0 not in self.components:
             self.set_component(0)
+        if 2 not in self.components:
+            self.set_component(2)
+
         if 2 in self.components:
             mat = self.coef[2]
             n = self.n_fermion
@@ -70,6 +73,49 @@ class Operator:
                         self._coef[0] += int(i == j) * mat[i, j + n]
                         mat[i, j + n] = 0
             self.set_component(2, mat)
+
+        if 4 in self.components:
+            mat = self.coef[4]
+            n = self.n_fermion
+            for idx, val in np.ndenumerate(mat):
+                new = np.zeros(mat.shape, dtype=np.complex)
+                if val != 0:
+                    # normal order the 4 body term, keeping track of swaps
+                    old = list(idx)
+                    phase = 1
+                    new_idx = ()
+                    for i in range(4):
+                        m_idx = old.index(max(old))
+                        new_idx += (old.pop(m_idx),)
+                        phase *= (-1) ** m_idx
+                    new[new_idx] += phase * val
+
+                    # compute all the single contractions
+                    for i in range(3):
+                        if idx[i] < n:
+                            for j in range(i + 1, 4):
+                                if idx[j] >= n and idx[i] == (idx[j] - n):
+                                    two_body_idx = list(idx)
+                                    two_body_idx.pop(j)
+                                    two_body_idx.pop(i)
+                                    phase = (-1) ** (i - j + 1)
+                                    self._coef[2][tuple(two_body_idx)] += val * phase
+
+                    # compute any double contractions
+                    if fm.fermion_weight(idx, n) == 0:
+                        if idx[0] < n and idx[1] < n:
+                            self._coef[0] += (
+                                -1 * val * (idx[0] == idx[2]) * (idx[1] == idx[3])
+                            )
+                            self._coef[0] += (
+                                val * (idx[0] == idx[3]) * (idx[1] == idx[2])
+                            )
+                        elif idx[0] < n and idx[2] < n:
+                            self._coef[0] += (
+                                val * (idx[0] == idx[1]) * (idx[2] == idx[3])
+                            )
+            self.set_component(4, new)
+        return self
 
     def jordan_wigner(self):
         r"""
@@ -161,6 +207,7 @@ class Operator:
                 self.remove_component(n)
             else:
                 self.set_component(n, temp)
+        return self
 
     def set_component(self, order, tensor=None):
         r"""
@@ -171,7 +218,9 @@ class Operator:
         data.
         """
         if tensor is None:
-            self._coef[order] = np.zeros([2 * self.n_fermion for i in range(order)])
+            self._coef[order] = np.zeros(
+                [2 * self.n_fermion for i in range(order)], dtype=np.complex
+            )
         elif len(tensor.shape) == order and all(
             [tensor.shape[i] == 2 * self.n_fermion for i in range(order)]
         ):
@@ -190,6 +239,7 @@ class Operator:
             del self.coef[order]
             self._components.remove(order)
             self.update_order()
+        return self
 
     def update_order(self):
         self._order = max(self.components)
