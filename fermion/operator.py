@@ -412,3 +412,24 @@ class Operator:
                         return False
                 return True
         return False
+
+    def _ferm_string(self, idx):
+        n = self.n_fermion
+        op_list = []
+        for i in idx:
+            if i < n:
+                op_list.append("a" + str(i))
+            else:
+                op_list.append("c" + str(i))
+        return "".join(op_list)
+
+    def __str__(self):
+        op = []
+        for comp, mat in self.coef.items():
+            if comp == 0 and mat != 0:
+                op.append(str(mat) + "*I")
+            else:
+                for idx, val in np.ndenumerate(mat):
+                    if val != 0:
+                        op.append(str(val) + "*" + self._ferm_string(idx))
+        return " + ".join(op)
