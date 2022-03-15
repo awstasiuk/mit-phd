@@ -432,4 +432,4 @@ class Operator:
                 for idx, val in np.ndenumerate(mat):
                     if val != 0:
                         op.append(str(val) + "*" + self._ferm_string(idx))
-        return " + ".join(op)
+        return "0" if len(op) == 0 else " + ".join(op)
