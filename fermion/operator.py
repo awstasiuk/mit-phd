@@ -43,12 +43,13 @@ class Operator:
 
         F = np.block([[f, np.zeros((n, n))], [np.zeros((n, n)), np.conjugate(f)]])
         coef = {}
-        if 0 in self.components:
-            coef[0] = self.coef[0]
-        if 1 in self.components:
-            coef[1] = np.conjugate(F @ self.coef[1])
-        if 2 in self.components:
-            coef[2] = np.conjugate(F.T) @ self.coef[2] @ F
+        for k in self.components:
+            if k == 0:
+                coef[0] = self.coef[0]
+            elif k == 1:
+                coef[1] = F @ self.coef[1]
+            else:
+                coef[k] = fm.tensor_change_of_basis(self.coef[k], F)
         return Operator(n, coef)
 
     def normal_order(self):
@@ -58,23 +59,79 @@ class Operator:
         """
         if 0 not in self.components:
             self.set_component(0)
+        if 2 not in self.components:
+            self.set_component(2)
+
         if 2 in self.components:
             mat = self.coef[2]
             n = self.n_fermion
             for i in range(n):
                 for j in range(n):
-                    if mat[i, j] != 0:
-                        mat[j, i] += -mat[i + n, j + n]
-                        self._coef[0] += int(i == j) * mat[i + n, j + n]
-                        mat[i + n, j + n] = 0
+                    if mat[i, j + n] != 0:
+                        mat[j + n, i] += -mat[i, j + n]
+                        self._coef[0] += int(i == j) * mat[i, j + n]
+                        mat[i, j + n] = 0
             self.set_component(2, mat)
+
+        if 4 in self.components:
+            mat = self.coef[4]
+            n = self.n_fermion
+            new = np.zeros(mat.shape, dtype=np.complex)
+            for idx, val in np.ndenumerate(mat):
+                if val != 0:
+                    # normal order the 4 body term, keeping track of swaps
+                    old = list(idx)
+                    phase = 1
+                    new_idx = ()
+                    for i in range(4):
+                        m_idx = old.index(max(old))
+                        new_idx += (old.pop(m_idx),)
+                        phase *= (-1) ** m_idx
+                    new[new_idx] += phase * val
+
+                    # compute all the single contractions
+                    for i in range(3):
+                        if idx[i] < n:
+                            for j in range(i + 1, 4):
+                                if idx[j] >= n and idx[i] == (idx[j] - n):
+                                    two_body_idx = list(idx)
+                                    two_body_idx.pop(j)
+                                    two_body_idx.pop(i)
+                                    phase = (-1) ** (i - j + 1)
+                                    if two_body_idx[0] < two_body_idx[1]:
+                                        two_body_idx.reverse()
+                                        phase *= -1
+                                    self._coef[2][tuple(two_body_idx)] += val * phase
+
+                    # compute any double contractions
+                    if fm.fermion_weight(idx, n) == 0:
+                        if idx[0] < n and idx[1] < n:
+                            self._coef[0] += (
+                                -1
+                                * val
+                                * (idx[0] == (idx[2] - n))
+                                * (idx[1] == (idx[3] - n))
+                            )
+                            self._coef[0] += (
+                                val
+                                * (idx[0] == (idx[3] - n))
+                                * (idx[1] == (idx[2] - n))
+                            )
+                        elif idx[0] < n and idx[2] < n:
+                            self._coef[0] += (
+                                val
+                                * (idx[0] == (idx[1] - n))
+                                * (idx[2] == (idx[3] - n))
+                            )
+            self.set_component(4, new)
+        return self
 
     def jordan_wigner(self):
         r"""
-        Returns a tuple of the diagonalized quadratic fermionic operator and the diagonalizing
-        Jordan--Wigner matrix, which is block diagonal of the form
-        T = [[G, H], [H.conj, G.conj]], where T*M*T.dag=D is diagonal, and the blocks
-        satisfy
+        Returns a tuple of the diagonalized quadratic fermionic operator and the conjugate
+        transpose of the diagonalizing Jordan--Wigner matrix, which is block diagonal of the form
+        T = [[G, H], [H.conj, G.conj]], and the blocks satisfy
+
         G*G.T + H*H.T = Identity
         G*H.T + H*G.T = 0
 
@@ -86,8 +143,8 @@ class Operator:
         n = self.n_fermion
 
         # prepare the right matrix to diagonalize
-        alpha = self.coef[2][0:n, 0:n]
-        beta = -2 * np.conj(self.coef[2][0:n, n : 2 * n])
+        alpha = self.coef[2][n : 2 * n, 0:n]
+        beta = 2 * self.coef[2][0:n, 0:n]
         mat = (alpha - beta) @ (alpha + beta)
 
         # diagonalize and extract the correctly ordered operators
@@ -100,15 +157,30 @@ class Operator:
         G = 0.5 * (phi + psi)
         H = 0.5 * (phi - psi)
         T = np.block([[G, H], [np.conj(H), np.conj(G)]])
-        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), T
+        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), np.conj(T.T)
 
     def trace(self):
         r"""
         Computes the trace divided by 2^n_fermion, so as to avoid things needlessly
         blowing up.
         """
-        tr = self.coef[0]
-        tr += sum(self.coef[2][i, i] / 2 for i in range(2 * self.n_fermion))
+        tr = 0
+        if 0 in self.components:
+            tr += self.coef[0]
+
+        if 2 in self.components:
+            tr += sum(
+                self.coef[2][i + self.n_fermion, i] / 2 for i in range(self.n_fermion)
+            )
+            tr += sum(
+                self.coef[2][i, i + self.n_fermion] / 2 for i in range(self.n_fermion)
+            )
+
+        if 4 in self.components:
+            for idx, val in np.ndenumerate(self.coef[4]):
+                if val != 0 and fm.fermion_weight(idx, self.n_fermion) == 0:
+                    tr += val * fm.trace_weight(idx, self.n_fermion)
+
         return tr
 
     def commutator(self, other):
@@ -116,14 +188,14 @@ class Operator:
         computes the commutator of two operators, returns the resulting operator,
         C = [self, other].
         """
-        return
+        return self * other - other * self
 
     def anti_commutator(self, other):
         r"""
         computes the anit-commutator of two operators, returns the resulting operator,
         C = {self, other}.
         """
-        return
+        return self * other + other * self
 
     @property
     def is_quadratic(self):
@@ -144,6 +216,7 @@ class Operator:
                 self.remove_component(n)
             else:
                 self.set_component(n, temp)
+        return self
 
     def set_component(self, order, tensor=None):
         r"""
@@ -154,7 +227,9 @@ class Operator:
         data.
         """
         if tensor is None:
-            self._coef[order] = np.zeros([2 * self.n_fermion for i in range(order)])
+            self._coef[order] = np.zeros(
+                [2 * self.n_fermion for i in range(order)], dtype=np.complex
+            )
         elif len(tensor.shape) == order and all(
             [tensor.shape[i] == 2 * self.n_fermion for i in range(order)]
         ):
@@ -173,6 +248,7 @@ class Operator:
             del self.coef[order]
             self._components.remove(order)
             self.update_order()
+        return self
 
     def update_order(self):
         self._order = max(self.components)
@@ -206,9 +282,7 @@ class Operator:
         if shA[0] != shA[1] or shB[0] != shB[1]:
             raise ValueError("the matrices must be square")
 
-        q = Operator(
-            n_fermion, {2: np.block([[A, -np.conjugate(B)], [B, -np.conjugate(A)]])}
-        )
+        q = Operator(n_fermion, {2: np.block([[B, -np.conj(A)], [A, -np.conj(B)]])})
         return q
 
     @staticmethod
@@ -226,16 +300,12 @@ class Operator:
     @staticmethod
     def number_op(index, n_spin):
         temp = np.zeros((2 * n_spin, 2 * n_spin))
-        temp[index, index] = 1
+        temp[index + n_spin, index] = 1
         return Operator(n_spin, {2: temp})
 
     @staticmethod
     def global_Z(n_spin):
-        temp = np.zeros((2 * n_spin, 2 * n_spin))
-        for i in range(n_spin):
-            temp[i, i] = -1
-            temp[i + n_spin, i + n_spin] = 1
-        return Operator(n_spin, {2: temp})
+        return Operator.disorder_Z(n_spin, np.ones(n_spin))
 
     @staticmethod
     def disorder_Z(n_spin, field):
@@ -243,16 +313,16 @@ class Operator:
             raise ValueError("vector of disorder must equal number of spins")
         temp = np.zeros((2 * n_spin, 2 * n_spin))
         for idx, B in enumerate(field):
-            temp[idx, idx] = -B
-            temp[idx + n_spin, idx + n_spin] = B
+            temp[idx, idx + n_spin] = B
+            temp[idx + n_spin, idx] = -B
         return Operator(n_spin, {2: temp})
 
     @staticmethod
     def local_Z(index, n_spin):
         Zi = Operator(n_spin)
         temp = np.zeros((2 * n_spin, 2 * n_spin))
-        temp[index - 1, index - 1] = -1
-        temp[index - 1 + n_spin, index - 1 + n_spin] = 1
+        temp[index, index + n_spin] = 1
+        temp[index + n_spin, index] = -1
         return Operator(n_spin, {2: temp})
 
     @staticmethod
@@ -298,13 +368,47 @@ class Operator:
                 "Operator addition must be between ops with same number of fermions"
             )
 
-    def __mult__(self, other):
-        if isinstance(other, Operator):
-            raise ValueError("non-scalar multiplication not yet implemented")
+    def __sub__(self, other):
+        if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
+            comps = list(set(self.components).union(other.components))
+            coef = {}
+            for n in comps:
+                if n in self.components and n not in other.components:
+                    coef[n] = self.coef[n]
+                elif n not in self.components and n in other.components:
+                    coef[n] = -1 * other.coef[n]
+                else:
+                    coef[n] = self.coef[n] - other.coef[n]
+            return Operator(self.n_fermion, coef)
+        else:
+            raise ValueError(
+                "Operator addition must be between ops with same number of fermions"
+            )
+
+    def __mul__(self, other):
+        coef = {}
+        if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
+            for rS in self.components:
+                for rO in other.components:
+                    if rS + rO in coef.keys():
+                        coef[rS + rO] += fm.tensor_product(
+                            self.coef[rS], other.coef[rO]
+                        )
+                    else:
+                        coef[rS + rO] = fm.tensor_product(self.coef[rS], other.coef[rO])
+            return Operator(self.n_fermion, coef)
         elif type(other) in (int, float, complex):
-            mult = Operator(self.n_fermion)
             for i in self.components:
-                mult._coef[i] = other * self.coef[i]
-            return mult
+                coef[i] = other * self.coef[i]
+            return Operator(self.n_fermion, coef)
         else:
             raise ValueError("type not recognized for multiplication")
+
+    def __eq__(self, other):
+        if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
+            if self.components == other.components:
+                for r in self.components:
+                    if not np.allclose(self.coef[r], other.coef[r]):
+                        return False
+                return True
+        return False
