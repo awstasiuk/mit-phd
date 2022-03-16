@@ -1,4 +1,5 @@
 import numpy as np
+import cmath
 
 
 class Math:
@@ -21,11 +22,12 @@ class Math:
 
     @staticmethod
     def adj(mat):
-        return np.conjugate(mat.T)
+        return np.conj(mat.T)
 
     @staticmethod
     def exp_diag(vec, t):
-        diag = np.exp(-1j * vec * t)
+        angles = (vec * t) % (2 * np.pi)
+        diag = [cmath.exp(-1j * angle) for angle in angles]
         return np.diag(diag)
 
     @staticmethod
