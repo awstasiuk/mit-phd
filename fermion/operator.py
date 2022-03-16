@@ -168,7 +168,7 @@ class Operator:
         G = 0.5 * (phi + psi)
         H = 0.5 * (phi - psi)
         T = np.block([[G, H], [np.conj(H), np.conj(G)]])
-        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), np.conj(T.T)
+        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), T
 
     def trace(self):
         r"""

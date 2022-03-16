@@ -22,7 +22,7 @@ class Math:
 
     @staticmethod
     def adj(mat):
-        return np.conjugate(mat.T)
+        return np.conj(mat.T)
 
     @staticmethod
     def exp_diag(vec, t):
