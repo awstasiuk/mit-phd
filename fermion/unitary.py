@@ -25,7 +25,7 @@ class Unitary:
         self._t = [i * dt for i in range(self._n_steps)]
 
         diag, T = ham.jordan_wigner()
-        self._eigen = diag.coef[2].diagonal(-ham.n_fermion)
+        self._eigen = 2 * diag.coef[2].diagonal(-ham.n_fermion)
         self._G = T[0 : ham.n_fermion, 0 : ham.n_fermion]
         self._H = T[0 : ham.n_fermion, ham.n_fermion : 2 * ham.n_fermion]
 
@@ -40,8 +40,8 @@ class Unitary:
         if u1 is not None:
             return u1
         u1 = (
-            fm.adj(self.G) @ fm.exp_diag(self.eigen, 2 * t) @ self.G
-            + fm.adj(self.H) @ fm.exp_diag(self.eigen, -2 * t) @ self.H
+            fm.adj(self.G) @ fm.exp_diag(self.eigen, t) @ self.G
+            + fm.adj(self.H) @ fm.exp_diag(self.eigen, -t) @ self.H
         )
         self._cache["U1"][t] = u1
         return u1
@@ -55,22 +55,21 @@ class Unitary:
         if u2 is not None:
             return u2
         u2 = (
-            fm.adj(self.G) @ fm.exp_diag(self.eigen, 2 * t) @ self.H
-            + fm.adj(self.H) @ fm.exp_diag(self.eigen, -2 * t) @ self.G
+            fm.adj(self.G) @ fm.exp_diag(self.eigen, t) @ self.H
+            + fm.adj(self.H) @ fm.exp_diag(self.eigen, -t) @ self.G
         )
         self._cache["U2"][t] = u2
         return u2
 
-        return
-
     def U(self, t):
         r"""
         the 2N*2N operator representing time evolution in the original fermionic basis
+        a(t) = u1(t)*a + u2(t)*adag
+        adag(t) = u1(t).conj * adag + u2(t).conj * a
         """
         u1 = self.U1(t)
         u2 = self.U2(t)
-        # TODO: Check if this is right!
-        return np.block([[u1, u2], [np.conjugate(u2), np.conjugate(u1)]])
+        return np.block([[u1, u2], [np.conj(u2), np.conj(u1)]])
 
     def local_zz(self, idx1, idx2):
         r"""
@@ -101,7 +100,10 @@ class Unitary:
         """
         return [
             (1 / self.hamiltonian.n_fermion)
-            * (np.linalg.norm(self.U1(t)) ** 2 - np.linalg.norm(self.U2(t)) ** 2)
+            * (
+                np.linalg.norm(self.U1(t), "fro") ** 2
+                - np.linalg.norm(self.U2(t), "fro") ** 2
+            )
             for t in self.t
         ]
 
@@ -121,7 +123,7 @@ class Unitary:
             elif k == 1:
                 coef[1] = self.U(t) @ op.coef[1]
             else:
-                coef[k] = fm.tensor_change_of_basis(op.coef[k], np.conj(self.U(t).T))
+                coef[k] = fm.tensor_change_of_basis(op.coef[k], self.U(t))
 
         return Operator(op.n_fermion, coef)
 

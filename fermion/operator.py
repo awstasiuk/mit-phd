@@ -1,6 +1,7 @@
 from fermion.math import Math as fm
 
 import numpy as np
+from scipy import linalg as la
 from math import e, pi
 
 
@@ -78,7 +79,7 @@ class Operator:
             n = self.n_fermion
             new = np.zeros(mat.shape, dtype=np.complex)
             for idx, val in np.ndenumerate(mat):
-                if val != 0:
+                if val != 0 and not Operator._is_zero(idx):
                     # normal order the 4 body term, keeping track of swaps
                     old = list(idx)
                     phase = 1
@@ -87,7 +88,8 @@ class Operator:
                         m_idx = old.index(max(old))
                         new_idx += (old.pop(m_idx),)
                         phase *= (-1) ** m_idx
-                    new[new_idx] += phase * val
+                    if not Operator._is_zero(new_idx):
+                        new[new_idx] += phase * val
 
                     # compute all the single contractions
                     for i in range(3):
@@ -101,7 +103,10 @@ class Operator:
                                     if two_body_idx[0] < two_body_idx[1]:
                                         two_body_idx.reverse()
                                         phase *= -1
-                                    self._coef[2][tuple(two_body_idx)] += val * phase
+                                    if not Operator._is_zero(two_body_idx):
+                                        self._coef[2][tuple(two_body_idx)] += (
+                                            val * phase
+                                        )
 
                     # compute any double contractions
                     if fm.fermion_weight(idx, n) == 0:
@@ -126,6 +131,13 @@ class Operator:
             self.set_component(4, new)
         return self
 
+    @staticmethod
+    def _is_zero(idx):
+        for i in range(1, len(idx)):
+            if idx[i - 1] == idx[i]:
+                return True
+        return False
+
     def jordan_wigner(self):
         r"""
         Returns a tuple of the diagonalized quadratic fermionic operator and the conjugate
@@ -139,16 +151,15 @@ class Operator:
         """
         if not self.is_quadratic:
             raise ValueError("Not a quadratic fermionic operator")
-        self.normal_order()
         n = self.n_fermion
 
         # prepare the right matrix to diagonalize
-        alpha = self.coef[2][n : 2 * n, 0:n]
+        alpha = 2 * self.coef[2][n : 2 * n, 0:n]
         beta = 2 * self.coef[2][0:n, 0:n]
         mat = (alpha - beta) @ (alpha + beta)
 
         # diagonalize and extract the correctly ordered operators
-        sqr_eig, phi = np.linalg.eigh(mat)
+        sqr_eig, phi = la.eigh(mat)
         psi = [(1 / np.sqrt(sqr_eig[i])) * (alpha - beta) @ phi[:, i] for i in range(n)]
         psi = np.array(psi)
         phi = phi.T
@@ -404,6 +415,11 @@ class Operator:
         else:
             raise ValueError("type not recognized for multiplication")
 
+    def __pow__(self, other):
+        if other != 2:
+            raise ValueError
+        return self * self
+
     def __eq__(self, other):
         if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
             if self.components == other.components:
@@ -420,7 +436,7 @@ class Operator:
             if i < n:
                 op_list.append("a" + str(i))
             else:
-                op_list.append("c" + str(i))
+                op_list.append("c" + str(i % n))
         return "".join(op_list)
 
     def __str__(self):
