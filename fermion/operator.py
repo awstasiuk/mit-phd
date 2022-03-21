@@ -362,6 +362,49 @@ class Operator:
                 C[n_spin - 1, 0] = J
         return Operator.quadratic_form(A, C)
 
+    @staticmethod
+    def flipflop(n_spin, B=0, J=1, periodic=False):
+        r"""
+        Generate the nearest neighbor flip-flop Hamiltonian quadratic form,
+        `H=B*Sz + J*Sum(XX-YY)`
+
+        `B` can be specified as a `double` or an `iterable` of length `n_spin` to
+        generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
+        conditions are set to be open. Periodic boundary conditions can be imposed
+        by setting `periodic` to `True`.
+        """
+        if hasattr(B, "__iter__"):
+            A = np.diag(B)
+        else:
+            A = -B * np.identity(n_spin)
+        A += J * (np.diag(np.ones(n_spin - 1), 1) - np.diag(np.ones(n_spin - 1), -1))
+        if periodic:
+            if n_spin % 2 == 0:
+                A[0, n_spin - 1] = J
+                A[n_spin - 1, 0] = -J
+            else:
+                A[0, n_spin - 1] = -J
+                A[n_spin - 1, 0] = J
+
+        return Operator.quadratic_form(A, np.zeros((n_spin, n_spin)))
+
+    @staticmethod
+    def generalXY(n_spin, u, v, B=0, J=1, perdioic=False):
+        r"""
+        Generate the nearest neighbor XY hamiltonian quadratic form, with
+        `H=B*Sz + J*Sum(u*XX + v*YY)`, where u and v are arbitrary real numbers.
+
+        `B` can be specified as a `double` or an `iterable` of length `n_spin` to
+        generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
+        conditions are set to be open. Periodic boundary conditions can be imposed
+        by setting `periodic` to `True`.
+        """
+        flip = (u + v) / 2
+        dq = (u - v) / 2
+        return Operator.double_quantum(
+            n_spin, B=B, J=J * dq, periodic=periodic
+        ) + Operator.flipflop(n_spin, B=B, J=J * flip, periodic=periodic)
+
     def __add__(self, other):
         if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
             comps = list(set(self.components).union(other.components))
