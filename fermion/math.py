@@ -50,7 +50,9 @@ class Math:
 
         ein = ",".join(lhs) + " -> " + "".join(chars_upper)
         mats = [tf.constant(tensor, dtype=tf.complex128)]
-        mats.extend([tf.constant(matrix) for _ in range(len(chars))])
+        mats.extend(
+            [tf.constant(matrix, dtype=tf.complex128) for _ in range(len(chars))]
+        )
         return tf.einsum(ein, *mats).numpy()
 
     @staticmethod
