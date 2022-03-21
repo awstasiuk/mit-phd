@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 import cmath
 
 
@@ -32,29 +33,25 @@ class Math:
 
     @staticmethod
     def tensor_product(A, B):
-        A = np.array(A)
-        B = np.array(B)
-        shape = A.shape + B.shape
-        rA = len(A.shape)
-        rB = len(B.shape)
-        new = np.zeros(shape, dtype=np.complex)
-        for idx, _ in np.ndenumerate(new):
-            new[idx] = A[idx[0:rA]] * B[idx[rA : (rA + rB)]]
-        return new
+        A = tf.constant(A, dtype=tf.complex128)
+        B = tf.constant(B, dtype=tf.complex128)
+        return tf.tensordot(A, B, axes=0).numpy()
 
     @staticmethod
     def tensor_change_of_basis(tensor, matrix):
-        new = np.zeros(tensor.shape, dtype=np.complex)
-        rank = len(tensor.shape)
-        for idx1, _ in np.ndenumerate(new):
-            temp = 0
-            for idx2, val in np.ndenumerate(tensor):
-                if val != 0:
-                    temp += val * np.prod(
-                        [matrix[idx2[i], idx1[i]] for i in range(rank)]
-                    )
-            new[idx1] = temp
-        return new
+        a = 97
+        A = 65
+        chars = [str(chr(a + i)) for i in range(len(tensor.shape))]
+        chars_upper = [str(chr(A + i)) for i in range(len(tensor.shape))]
+        lhs = []
+        lhs.append("".join(chars))
+        for low, up in zip(chars, chars_upper):
+            lhs.append(low + up)
+
+        ein = ",".join(lhs) + " -> " + "".join(chars_upper)
+        mats = [tf.constant(tensor, dtype=tf.complex128)]
+        mats.extend([tf.constant(matrix) for _ in range(len(chars))])
+        return tf.einsum(ein, *mats).numpy()
 
     @staticmethod
     def fermion_weight(idx_str, n):
