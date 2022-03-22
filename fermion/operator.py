@@ -173,7 +173,7 @@ class Operator:
     def trace(self):
         r"""
         Computes the trace divided by 2^n_fermion, so as to avoid things needlessly
-        blowing up.
+        blowing up. tring to be fast here.
         """
         tr = 0
         if 0 in self.components:
