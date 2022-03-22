@@ -197,6 +197,9 @@ class Operator:
         computes the commutator of two operators, returns the resulting operator,
         C = [self, other].
         """
+        if self.is_quadratic():
+            # do something clever here
+            return Operator
         return self * other - other * self
 
     def anti_commutator(self, other):
