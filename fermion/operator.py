@@ -173,18 +173,16 @@ class Operator:
     def trace(self):
         r"""
         Computes the trace divided by 2^n_fermion, so as to avoid things needlessly
-        blowing up.
+        blowing up. tring to be fast here.
         """
         tr = 0
         if 0 in self.components:
             tr += self.coef[0]
 
         if 2 in self.components:
-            tr += sum(
-                self.coef[2][i + self.n_fermion, i] / 2 for i in range(self.n_fermion)
-            )
-            tr += sum(
-                self.coef[2][i, i + self.n_fermion] / 2 for i in range(self.n_fermion)
+            tr += 0.5 * (
+                np.sum(np.diagonal(self.coef[2], self.n_fermion))
+                + np.sum(np.diagonal(self.coef[2], -self.n_fermion))
             )
 
         if 4 in self.components:
