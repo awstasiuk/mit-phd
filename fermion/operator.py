@@ -180,11 +180,9 @@ class Operator:
             tr += self.coef[0]
 
         if 2 in self.components:
-            tr += sum(
-                self.coef[2][i + self.n_fermion, i] / 2 for i in range(self.n_fermion)
-            )
-            tr += sum(
-                self.coef[2][i, i + self.n_fermion] / 2 for i in range(self.n_fermion)
+            tr += 0.5 * (
+                np.sum(np.diagonal(self.coef[2], self.n_fermion))
+                + np.sum(np.diagonal(self.coef[2], -self.n_fermion))
             )
 
         if 4 in self.components:
