@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import cmath
+from functools import lru_cache
 
 
 class Math:
@@ -56,13 +57,43 @@ class Math:
         return tf.einsum(ein, *mats).numpy()
 
     @staticmethod
+    @lru_cache
+    def tw_four_body(n_spin):
+        r"""
+        Computes the indices and trace weights of
+        """
+        n = 2 * n_spin
+
+        idx_list = []
+        vals = []
+
+        for i in range(n):
+            for j in range(n):
+                if i != (j + n_spin) % n and i != j:
+                    idx = (i, j, (i + n_spin) % n, (j + n_spin) % n)
+                    idx_list.append(idx)
+                    vals.append(Math.trace_weight(idx, n_spin))
+
+                    idx = (i, j, (j + n_spin) % n, (i + n_spin) % n)
+                    idx_list.append(idx)
+                    vals.append(Math.trace_weight(idx, n_spin))
+                elif i == (j + n_spin) % n and i != j:
+                    for k in range(n):
+                        if k != j:
+                            idx = (i, j, k, (k + n_spin) % n)
+                            idx_list.append(idx)
+                            vals.append(Math.trace_weight(idx, n_spin))
+        return idx_list, vals
+
+    @staticmethod
     def fermion_weight(idx_str, n):
         return sum([1 if idx_str[i] >= n else -1 for i in range(len(idx_str))])
 
     @staticmethod
     def trace_weight(idx_str, n):
         r"""
-        works for quadratic and quartic operators.
+        works for up to quartic operators, as linear and cubic terms have 0 trace for all
+        terms.
         """
         for idx in idx_str:
             if (idx + n) % (2 * n) not in idx_str:

@@ -186,9 +186,8 @@ class Operator:
             )
 
         if 4 in self.components:
-            for idx, val in np.ndenumerate(self.coef[4]):
-                if val != 0 and fm.fermion_weight(idx, self.n_fermion) == 0:
-                    tr += val * fm.trace_weight(idx, self.n_fermion)
+            idx_list, weights = fm.tw_four_body(self.n_fermion)
+            tr += sum(w * self.coef[4][idx] for idx, w in zip(idx_list, weights))
 
         return tr
 
