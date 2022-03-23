@@ -262,7 +262,11 @@ class Operator:
         return self
 
     def update_order(self):
-        self._order = max(self.components)
+        if len(self.components) == 0:
+            self.set_component(0, 0)
+            self._order = 0
+        else:
+            self._order = max(self.components)
 
     @property
     def n_fermion(self):

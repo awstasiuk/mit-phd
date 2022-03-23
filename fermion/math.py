@@ -34,12 +34,25 @@ class Math:
 
     @staticmethod
     def tensor_product(A, B):
+        r"""
+        compute the tensor outer product. tensorflow does this much faster than we can
+        natively in python, so we wrap around their existing functionality.
+        """
         A = tf.constant(A, dtype=tf.complex128)
         B = tf.constant(B, dtype=tf.complex128)
         return tf.tensordot(A, B, axes=0).numpy()
 
     @staticmethod
     def tensor_change_of_basis(tensor, matrix):
+        r"""
+        Performs a change of basis computation for a general tensor, given a rank 2 change
+        of basis matrix, which corresponds to the following operation, as an einsum.
+
+        F_{ab...c} = U_a^i U_b^j ... U_c^k T_{ij...k}
+
+        Here, {F} are the coordinates of the tensor in the new basis, and {T} are the coordinates
+        of the tensor in the old basis, and {U} represents the change of basis matrix.
+        """
         a = 97
         A = 65
         chars = [str(chr(a + i)) for i in range(len(tensor.shape))]
@@ -60,7 +73,10 @@ class Math:
     @lru_cache
     def tw_four_body(n_spin):
         r"""
-        Computes the indices and trace weights of
+        Computes the indices which have a non-zero trace, and their trace weighting, and return
+        them as a pair of a list of tuples and a list of weights. Further, the returned values
+        are globally cached, so that repeat calls to this function will not need to regenerate
+        the lists of indices and weights, for a given number of spins.
         """
         n = 2 * n_spin
 
