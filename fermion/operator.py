@@ -232,26 +232,32 @@ class Operator:
             )
 
             ca3 = (
-                -tf.einsum("kl,ij,li", aa1, cc2, delta)
-                + tf.einsum("kl,ij,ki", aa1, cc2, delta)
-                + tf.einsum("kl,ij,lj", aa1, cc2, delta)
-                - tf.einsum("kl,ij,kj", aa1, cc2, delta)
+                -tf.einsum("kl,ij,li->kj", aa1, cc2, delta)
+                + tf.einsum("kl,ij,ki->lj", aa1, cc2, delta)
+                + tf.einsum("kl,ij,lj->ki", aa1, cc2, delta)
+                - tf.einsum("kl,ij,kj->li", aa1, cc2, delta)
             )
             ca3 += (
-                tf.einsum("ij,kl,li", cc1, aa2, delta)
-                - tf.einsum("ij,kl,ki", cc1, aa2, delta)
-                - tf.einsum("ij,kl,lj", cc1, aa2, delta)
-                + tf.einsum("ij,kl,kj", cc1, aa2, delta)
+                tf.einsum("ij,kl,li->jk", cc1, aa2, delta)
+                - tf.einsum("ij,kl,ki->jl", cc1, aa2, delta)
+                - tf.einsum("ij,kl,lj->ik", cc1, aa2, delta)
+                + tf.einsum("ij,kl,kj->il", cc1, aa2, delta)
             )
-            ca3 += tf.einsum("ij,kl,jk", ca1, ca2, delta) - tf.einsum(
-                "ij,kl,li", ca1, ca2, delta
+            ca3 += tf.einsum("ij,kl,jk->il", ca1, ca2, delta) - tf.einsum(
+                "ij,kl,li->kj", ca1, ca2, delta
             )
 
-            comm[0:n, 0:n] = aa3.numpy()
-            comm[n : 2 * n, 0:n] = ca3.numpy()
+            id_term = -tf.einsum("ij,kl,li,kj", cc1, aa2, delta, delta) + tf.einsum(
+                "ij,kl,ki,lj", cc1, cc2, delta, delta
+            )
+            id_term += tf.einsum("kl,ij,li,kj", aa1, cc2, delta, delta) - tf.einsum(
+                "kl,ij,ki,lj", cc1, cc2, delta, delta
+            )
+
+            comm[0:n, 0:n] = aa3.numpy().transpose()
+            comm[n : 2 * n, 0:n] = ca3.numpy().transpose()
             comm[n : 2 * n, n : 2 * n] = cc3.numpy()
-
-            return Operator(self.n_fermion, {2: comm})
+            return Operator(self.n_fermion, {0: id_term.numpy(), 2: comm})
         return self * other - other * self
 
     def anti_commutator(self, other):
