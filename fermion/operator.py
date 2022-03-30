@@ -3,6 +3,8 @@ from fermion.math import Math as fm
 import numpy as np
 from scipy import linalg as la
 from math import e, pi
+import itertools
+import tensorflow as tf
 
 
 class Operator:
@@ -186,17 +188,76 @@ class Operator:
             )
 
         if 4 in self.components:
-            for idx, val in np.ndenumerate(self.coef[4]):
-                if val != 0 and fm.fermion_weight(idx, self.n_fermion) == 0:
-                    tr += val * fm.trace_weight(idx, self.n_fermion)
+            idx_list, weights = fm.tw_four_body(self.n_fermion)
+            tr += sum(w * self.coef[4][idx] for idx, w in zip(idx_list, weights))
 
         return tr
 
-    def commutator(self, other):
+    def commutator(self, other, use_speedup=True):
         r"""
         computes the commutator of two operators, returns the resulting operator,
         C = [self, other].
         """
+        n = self.n_fermion
+        if n != other.n_fermion:
+            raise ValueError("invalid shapes")
+
+        if use_speedup and self.is_quadratic and other.is_quadratic:
+            self.normal_order()
+            other.normal_order()
+            comm = np.zeros((2 * self.n_fermion, 2 * self.n_fermion), dtype=np.complex)
+
+            aa1 = tf.constant(self.coef[2][0:n, 0:n], dtype=tf.complex128)
+            ca1 = tf.constant(self.coef[2][n : 2 * n, 0:n], dtype=tf.complex128)
+            cc1 = tf.constant(self.coef[2][n : 2 * n, n : 2 * n], dtype=tf.complex128)
+
+            aa2 = tf.constant(other.coef[2][0:n, 0:n], dtype=tf.complex128)
+            ca2 = tf.constant(other.coef[2][n : 2 * n, 0:n], dtype=tf.complex128)
+            cc2 = tf.constant(other.coef[2][n : 2 * n, n : 2 * n], dtype=tf.complex128)
+
+            delta = tf.eye(n, dtype=tf.complex128)
+
+            aa3 = tf.einsum("ij,kl,li->jk", ca1, aa2, delta) - tf.einsum(
+                "ij,kl,ki->jl", ca1, aa2, delta
+            )
+            aa3 += -tf.einsum("kl,ij,li->kj", aa1, ca2, delta) + tf.einsum(
+                "kl,ij,ki->lj", aa1, ca2, delta
+            )
+
+            cc3 = tf.einsum("ij,kl,li->jk", cc1, ca2, delta) - tf.einsum(
+                "ij,kl,lj->ik", cc1, ca2, delta
+            )
+            cc3 += -tf.einsum("kl,ij,li->kj", ca1, cc2, delta) + tf.einsum(
+                "kl,ij,lj->jl", ca1, cc2, delta
+            )
+
+            ca3 = (
+                -tf.einsum("kl,ij,li->kj", aa1, cc2, delta)
+                + tf.einsum("kl,ij,ki->lj", aa1, cc2, delta)
+                + tf.einsum("kl,ij,lj->ki", aa1, cc2, delta)
+                - tf.einsum("kl,ij,kj->li", aa1, cc2, delta)
+            )
+            ca3 += (
+                tf.einsum("ij,kl,li->jk", cc1, aa2, delta)
+                - tf.einsum("ij,kl,ki->jl", cc1, aa2, delta)
+                - tf.einsum("ij,kl,lj->ik", cc1, aa2, delta)
+                + tf.einsum("ij,kl,kj->il", cc1, aa2, delta)
+            )
+            ca3 += tf.einsum("ij,kl,jk->il", ca1, ca2, delta) - tf.einsum(
+                "ij,kl,li->kj", ca1, ca2, delta
+            )
+
+            id_term = -tf.einsum("ij,kl,li,kj", cc1, aa2, delta, delta) + tf.einsum(
+                "ij,kl,ki,lj", cc1, cc2, delta, delta
+            )
+            id_term += tf.einsum("kl,ij,li,kj", aa1, cc2, delta, delta) - tf.einsum(
+                "kl,ij,ki,lj", cc1, cc2, delta, delta
+            )
+
+            comm[0:n, 0:n] = aa3.numpy().transpose()
+            comm[n : 2 * n, 0:n] = ca3.numpy().transpose()
+            comm[n : 2 * n, n : 2 * n] = cc3.numpy()
+            return Operator(self.n_fermion, {0: id_term.numpy(), 2: comm})
         return self * other - other * self
 
     def anti_commutator(self, other):
@@ -260,7 +321,11 @@ class Operator:
         return self
 
     def update_order(self):
-        self._order = max(self.components)
+        if len(self.components) == 0:
+            self.set_component(0, 0)
+            self._order = 0
+        else:
+            self._order = max(self.components)
 
     @property
     def n_fermion(self):
