@@ -217,33 +217,34 @@ class Operator:
 
             delta = tf.eye(n, dtype=tf.complex128)
 
-            aa3 = tf.einsum("ij,kl,li->jk", ca1, aa2, delta) - tf.einsum(
-                "ij,kl,ki->jl", ca1, aa2, delta
-            )
-            aa3 += -tf.einsum("kl,ij,li->kj", aa1, ca2, delta) + tf.einsum(
-                "kl,ij,ki->lj", aa1, ca2, delta
+            aa3 = tf.einsum("ij,kl,li", ca1, aa2, delta) - tf.einsum(
+                "ij,kl,ki", ca1, aa2, delta
             )
 
-            cc3 = tf.einsum("ij,kl,li->jk", cc1, ca2, delta) - tf.einsum(
-                "ij,kl,lj->ik", cc1, ca2, delta
+            aa3 += -tf.einsum("kl,ij,li", aa1, ca2, delta) + tf.einsum(
+                "kl,ij,ki", aa1, ca2, delta
             )
-            cc3 += -tf.einsum("kl,ij,li->kj", ca1, cc2, delta) + tf.einsum(
-                "kl,ij,lj->jl", ca1, cc2, delta
+
+            cc3 = tf.einsum("ij,kl,li", cc1, ca2, delta) - tf.einsum(
+                "ij,kl,lj", cc1, ca2, delta
+            )
+            cc3 += -tf.einsum("kl,ij,li", ca1, cc2, delta) + tf.einsum(
+                "kl,ij,lj", ca1, cc2, delta
             )
 
             ca3 = (
-                -tf.einsum("kl,ij,li->kj", aa1, cc2, delta)
-                + tf.einsum("kl,ij,ki->lj", aa1, cc2, delta)
-                + tf.einsum("kl,ij,lj->ki", aa1, cc2, delta)
-                - tf.einsum("kl,ij,kj->li", aa1, cc2, delta)
+                -tf.einsum("kl,ij,li", aa1, cc2, delta)
+                + tf.einsum("kl,ij,ki", aa1, cc2, delta)
+                + tf.einsum("kl,ij,lj", aa1, cc2, delta)
+                - tf.einsum("kl,ij,kj", aa1, cc2, delta)
             )
             ca3 += (
-                tf.einsum("ij,kl,li->jk", cc1, aa2, delta)
-                - tf.einsum("ij,kl,ki->jl", cc1, aa2, delta)
-                - tf.einsum("ij,kl,lj->ik", cc1, aa2, delta)
-                + tf.einsum("ij,kl,kj->il", cc1, aa2, delta)
+                tf.einsum("ij,kl,li", cc1, aa2, delta)
+                - tf.einsum("ij,kl,ki", cc1, aa2, delta)
+                - tf.einsum("ij,kl,lj", cc1, aa2, delta)
+                + tf.einsum("ij,kl,kj", cc1, aa2, delta)
             )
-            ca3 += tf.einsum("ij,kl,jk->il", ca1, ca2, delta) - tf.einsum(
+            ca3 += tf.einsum("ij,kl,jk", ca1, ca2, delta) - tf.einsum(
                 "ij,kl,li->kj", ca1, ca2, delta
             )
 
@@ -254,8 +255,8 @@ class Operator:
                 "kl,ij,ki,lj", cc1, cc2, delta, delta
             )
 
-            comm[0:n, 0:n] = aa3.numpy().transpose()
-            comm[n : 2 * n, 0:n] = ca3.numpy().transpose()
+            comm[0:n, 0:n] = aa3.numpy()
+            comm[n : 2 * n, 0:n] = ca3.numpy()
             comm[n : 2 * n, n : 2 * n] = cc3.numpy()
             return Operator(self.n_fermion, {0: id_term.numpy(), 2: comm})
         return self * other - other * self
