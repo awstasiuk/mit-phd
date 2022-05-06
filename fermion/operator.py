@@ -55,6 +55,21 @@ class Operator:
                 coef[k] = fm.tensor_change_of_basis(self.coef[k], F)
         return Operator(n, coef)
 
+    def adj(self):
+        r"""
+        Returns the adjoint of the operator.
+        """
+        n = self.n_fermion
+        SWAP = np.block(
+            [[np.zeros((n, n)), np.identity(n)], [np.identity(n), np.zeros((n, n))]]
+        )
+        new_coef = {}
+        for k in self.components:
+            new_coef[k] = np.conjugate(
+                fm.tensor_change_of_basis(self.coef[k], SWAP, reversed=True)
+            )
+        return Operator(n, new_coef)
+
     def normal_order(self):
         r"""
         Puts the up to the `highest_order` part of the operator into normal order,
@@ -404,7 +419,7 @@ class Operator:
     def double_quantum(n_spin, B=0, J=1, periodic=False):
         r"""
         Generate the nearest neighbor double quantum Hamiltonian quadratic form,
-        `H=B*Sz + J*Sum(XX+YY)`
+        `H=B*Sz + J*Sum(XX-YY)`
 
         `B` can be specified as a `double` or an `iterable` of length `n_spin` to
         generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
@@ -430,7 +445,7 @@ class Operator:
     def flipflop(n_spin, B=0, J=1, periodic=False):
         r"""
         Generate the nearest neighbor flip-flop Hamiltonian quadratic form,
-        `H=B*Sz + J*Sum(XX-YY)`
+        `H=B*Sz + J*Sum(XX+YY)`
 
         `B` can be specified as a `double` or an `iterable` of length `n_spin` to
         generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
@@ -441,7 +456,7 @@ class Operator:
             A = np.diag(B)
         else:
             A = -B * np.identity(n_spin)
-        A += J * (np.diag(np.ones(n_spin - 1), 1) - np.diag(np.ones(n_spin - 1), -1))
+        A += J * (np.diag(np.ones(n_spin - 1), 1) + np.diag(np.ones(n_spin - 1), -1))
         if periodic:
             if n_spin % 2 == 0:
                 A[0, n_spin - 1] = J
@@ -556,3 +571,6 @@ class Operator:
                     if val != 0:
                         op.append(str(val) + "*" + self._ferm_string(idx))
         return "0" if len(op) == 0 else " + ".join(op)
+
+    def __repr__(self):
+        return str(self)

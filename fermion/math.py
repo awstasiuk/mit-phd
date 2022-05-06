@@ -43,7 +43,7 @@ class Math:
         return tf.tensordot(A, B, axes=0).numpy()
 
     @staticmethod
-    def tensor_change_of_basis(tensor, matrix):
+    def tensor_change_of_basis(tensor, matrix, reversed=False):
         r"""
         Performs a change of basis computation for a general tensor, given a rank 2 change
         of basis matrix, which corresponds to the following operation, as an einsum.
@@ -61,6 +61,9 @@ class Math:
         lhs.append("".join(chars))
         for low, up in zip(chars, chars_upper):
             lhs.append(low + up)
+
+        if reversed:
+            chars_upper.reverse()
 
         ein = ",".join(lhs) + " -> " + "".join(chars_upper)
         mats = [tf.constant(tensor, dtype=tf.complex128)]
