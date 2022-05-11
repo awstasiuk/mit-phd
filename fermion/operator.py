@@ -264,10 +264,10 @@ class Operator:
             )
 
             id_term = -tf.einsum("ij,kl,li,kj", cc1, aa2, delta, delta) + tf.einsum(
-                "ij,kl,ki,lj", cc1, cc2, delta, delta
+                "ij,kl,ki,lj", cc1, aa2, delta, delta
             )
             id_term += tf.einsum("kl,ij,li,kj", aa1, cc2, delta, delta) - tf.einsum(
-                "kl,ij,ki,lj", cc1, cc2, delta, delta
+                "kl,ij,ki,lj", aa1, cc2, delta, delta
             )
 
             comm[0:n, 0:n] = aa3.numpy()
