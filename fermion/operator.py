@@ -208,6 +208,69 @@ class Operator:
 
         return tr
 
+    def square_trace(self):
+        r"""
+        Return the trace of a quadratic operator squared, tr(O^2).
+        """
+        if not self.is_quadratic:
+            raise ValueError()
+
+        tr = 0
+        if 0 in self.components:
+            alph = self.coef[0]
+        idx_list, weights = fm.tw_four_body(self.n_fermion)
+
+        tr += alph**2
+        tr += alph * (
+            np.sum(np.diagonal(self.coef[2], self.n_fermion))
+            + np.sum(np.diagonal(self.coef[2], -self.n_fermion))
+        )
+        tr += sum(
+            w * self.coef[2][idx[0:2]] * self.coef[2][idx[2:4]]
+            for idx, w in zip(idx_list, weights)
+        )
+        return tr
+
+    def prod_trace(self, other):
+        r"""
+        Returns the trace of the product of this operator with another, as long as both
+        operators are quadratic, tr(A*B).
+        """
+        n = self.n_fermion
+        if n != other.n_fermion:
+            raise ValueError("invalid shapes")
+        if not (self.is_quadratic and other.is_quadratic):
+            raise ValueError()
+
+        tr = 0
+        if 0 in self.components:
+            alpha = self.coef[0]
+        if 0 in other.components:
+            beta = other.coef[0]
+        idx_list, weights = fm.tw_four_body(n)
+
+        tr += alpha * beta
+        tr += (
+            0.5
+            * alpha
+            * (
+                np.sum(np.diagonal(other.coef[2], n))
+                + np.sum(np.diagonal(other.coef[2], -n))
+            )
+        )
+        tr += (
+            0.5
+            * beta
+            * (
+                np.sum(np.diagonal(self.coef[2], n))
+                + np.sum(np.diagonal(self.coef[2], -n))
+            )
+        )
+        tr += sum(
+            w * self.coef[2][idx[0:2]] * other.coef[2][idx[2:4]]
+            for idx, w in zip(idx_list, weights)
+        )
+
     def commutator(self, other, use_speedup=True):
         r"""
         computes the commutator of two operators, returns the resulting operator,
