@@ -9,7 +9,7 @@ import tensorflow as tf
 
 class Operator:
     r"""
-    A class desciribing a quadratic multi-body fermionic operator
+    A class desciribing a up to quartic multi-body fermionic operators
     """
 
     def __init__(self, n_fermion, coef=None):
