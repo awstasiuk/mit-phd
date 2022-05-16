@@ -11,6 +11,6 @@ import fermion.math
 import fermion.unitary
 
 from fermion.operator import Operator
-from fermion.majorana import Majorana
+from fermion.majorana import Majorana, PauliString, MajoranaString
 from fermion.math import Math
 from fermion.unitary import Unitary

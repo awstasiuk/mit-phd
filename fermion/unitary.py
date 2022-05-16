@@ -1,5 +1,7 @@
 from fermion.math import Math as fm
+from fermion.math import pfaffian
 from fermion.operator import Operator
+from fermion.majorana import MajoranaString
 
 import numpy as np
 from math import e, pi, ceil
@@ -29,7 +31,7 @@ class Unitary:
         self._G = T[0 : ham.n_fermion, 0 : ham.n_fermion]
         self._H = T[0 : ham.n_fermion, ham.n_fermion : 2 * ham.n_fermion]
 
-        self._cache = {"U1": {}, "U2": {}}
+        self._cache = {"U1": {}, "U2": {}, "Cm": {}}
 
     def U1(self, t):
         r"""
@@ -82,7 +84,7 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            (1 / self.hamiltonian.n_fermion)
+            (1 / self.n_fermion)
             * (
                 np.abs(self.U1(t)[idx1, idx2]) ** 2
                 - np.abs(self.U2(t)[idx1, idx2]) ** 2
@@ -99,13 +101,86 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            (1 / self.hamiltonian.n_fermion)
+            (1 / self.n_fermion)
             * (
                 np.linalg.norm(self.U1(t), "fro") ** 2
                 - np.linalg.norm(self.U2(t), "fro") ** 2
             )
             for t in self.t
         ]
+
+    def pauli_string_expectation(self, pauli_string, t):
+        r"""
+        Compute the infinite temperature expectation value for the (possibly) out of time
+        order local pauli string of operators in ``pauli_string'', at a time t. We do this by
+        writting the pauli string as a product of majorana fermion terms, and computing its
+        expectation value using Wick's theorem and the pfaffian matrix method, so only a matrix
+        of two body correlations within the many-body string need to be computed.
+        """
+        return [self._pfaffian_helper(pauli_string, t) for t in self.t]
+
+    def _pfaffian_helper(self, pauli_string, t):
+        r"""
+        Actually do the numerical work of computing the reduced 2-body correlation matrix and
+        taking its pfaffian to compute the pauli string expectation value.
+        """
+        # transform pauli string into majorana fermion representation
+        maj_str = MajoranaString.from_pauli_string(pauli_string)
+
+        # compute all 2-body majorana expectation values ahead of time
+        corr = self.majorana_two_body(t)
+        n = len(maj_str)
+
+        # generate the skew-symmetric matrix encoding the total expecation value to be
+        # extracted via pfaffian
+        pf_mat = np.zeros((n, n), dtype=np.complex128)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if maj_str.evo_bools[i] == maj_str.evo_bools[j]:
+                    # Case where both operators are evolved or neither are evolved (static case)
+                    pf_mat[i, j] = (
+                        0.5
+                        * int(maj_str.majoranas[i] == maj_str.majoranas[j])
+                        * int(maj_str.sites[i] == maj_str.sites[j])
+                    )
+                else:
+                    # case where one only one operator is evolved (dynamic case)
+                    idx1 = maj_str.sites[i] + self.n_fermion * int(
+                        maj_str.majoranas[i] == "B"
+                    )
+                    idx2 = maj_str.sites[j] + self.n_fermion * int(
+                        maj_str.majoranas[j] == "B"
+                    )
+
+                    if maj_str.evo_bools[i]:
+                        # subcase where the first operator is evolved
+                        pf_mat[i, j] = corr[idx1, idx2]
+                    else:
+                        # subcase where the second operator is evolved
+                        pre = 1
+                        if (i < self.n_fermion and j > self.n_fermion) or (
+                            i > self.n_fermion and j < self.n_fermion
+                        ):
+                            # fix ordering phase for upper right and lower left blocks
+                            pre = -1
+                        pf_mat[i, j] = pre * corr[idx1, idx2]
+
+        # anti-symmetrize
+        pf_mat = pf_mat - pf_mat.transpose()
+        return maj_str.pre_factor * pfaffian(pf_mat)
+
+    def majorana_two_body(self, t):
+        r"""
+        Computes and returns the two body correlation matrix for a set of 2n Majorana
+        fermions evolving under system hamiltonian at time t. Ai = isqrt2*(ai+ci),
+        Bi = -1j*isqrt2*(ai-ci)
+        """
+        if t in self._cache["Cm"]:
+            return self._cache["Cm"][t]
+        T = np.kron([[1, 1], [-1j, 1j]] / np.sqrt(2), np.eye(self.n_fermion))
+        Ct = 0.5 * (T @ self.U(t) @ fm.adj(T))
+        self._cache["Cm"][t] = Ct
+        return Ct
 
     def evolve_op(self, op, t):
         r"""
@@ -151,6 +226,10 @@ class Unitary:
     @property
     def hamiltonian(self):
         return self._ham
+
+    @property
+    def n_fermion(self):
+        return self._ham.n_fermion
 
     @property
     def dt(self):
