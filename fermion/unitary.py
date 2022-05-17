@@ -1,7 +1,7 @@
 from fermion.math import Math as fm
 from fermion.math import pfaffian
 from fermion.operator import Operator
-from fermion.majorana import MajoranaString
+from fermion.majorana import PauliString, MajoranaString
 
 import numpy as np
 from math import e, pi, ceil
@@ -28,10 +28,16 @@ class Unitary:
 
         diag, T = ham.jordan_wigner()
         self._eigen = 2 * diag.coef[2].diagonal(-ham.n_fermion)
+        self._T = T
         self._G = T[0 : ham.n_fermion, 0 : ham.n_fermion]
         self._H = T[0 : ham.n_fermion, ham.n_fermion : 2 * ham.n_fermion]
 
-        self._cache = {"U1": {}, "U2": {}, "Cm": {}}
+        otoc_cache = {}
+        for mu in PauliString.P_CHARS:
+            for nu in PauliString.P_CHARS:
+                otoc_cache[mu + nu] = {}
+
+        self._cache = {"U1": {}, "U2": {}, "Cm": {}, "OTOC": otoc_cache}
 
     def U1(self, t):
         r"""
@@ -84,11 +90,7 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            (1 / self.n_fermion)
-            * (
-                np.abs(self.U1(t)[idx1, idx2]) ** 2
-                - np.abs(self.U2(t)[idx1, idx2]) ** 2
-            )
+            (np.abs(self.U1(t)[idx1, idx2]) ** 2 - np.abs(self.U2(t)[idx1, idx2]) ** 2)
             for t in self.t
         ]
 
@@ -101,21 +103,76 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            (1 / self.n_fermion)
-            * (
+            (
                 np.linalg.norm(self.U1(t), "fro") ** 2
                 - np.linalg.norm(self.U2(t), "fro") ** 2
             )
             for t in self.t
         ]
 
-    def pauli_string_expectation(self, pauli_string, t):
+    def global_OTOC(self, mu, nu):
+        r"""
+        Computes the infinite temperature OTOC for global magnetization operators,
+
+        F_{mu nu}(t) = - < [J_mu(t), J_nu]^2 >
+
+        on this instance's time mesh.
+        """
+        return [
+            np.real(np.sum(self.centered_OTOC_tensor(mu, nu, t))) - 1 for t in self.t
+        ]
+
+    def centered_OTOC_tensor(self, mu, nu, t):
+        r"""
+        Returns the rank 3 centered OTOC tensor for two magnetization directions such that
+        mu, nu \in {"X", "Y", "Z"}, corresponding to the relevant local paulis in the OTOC
+        tensor,
+
+        T^{abc} = - < [S_mu^{(N/2)}(t), S_nu^{(a)}] * [S_mu^{(b)}(t), S_nu^{(c)}] >,
+
+        where a,b,c,d run over all spin sites, 1,2,...,N.
+
+        Encoded within contractions of this tensor are global, local, and semi-local OTOCs commonly
+        seen in the literature, so long as the underlying hamiltonian is translationally invariant.
+
+        non-translationally invariant hamiltonians should use an uncentered OTOC tensor, which
+        is rank 4.
+        """
+        if t in self._cache["OTOC"][mu + nu]:
+            return self._cache["OTOC"][mu + nu][t]
+        n = self.n_fermion
+        center = int(n / 2)
+        otoc = np.zeros((n, n, n, n), dtype=np.complex)
+
+        for a in range(self.n_fermion):
+            for b in range(self.n_fermion):
+                for c in range(self.n_fermion):
+                    for d in range(self.n_fermion):
+                        term1 = PauliString(
+                            [mu, nu, mu, nu],
+                            [a, b, c, d],
+                            [True, False, True, False],
+                        )
+
+                        # term2 = PauliString(
+                        #    [nu, mu, mu, nu],
+                        #    [a, center, b, c],
+                        #    [False, True, True, False],
+                        # ) - self._pfaffian_helper(term2, t)
+                        otoc[a, b, c, d] = self._pfaffian_helper(term1, t)
+                        # if all(n - idx > 0 for idx in [a - 1, b - 1, c - 1]):
+                        #    otoc[n - a - 1, n - b - 1, n - c - 1] = otoc_elem
+
+        self._cache["OTOC"][mu + nu][t] = otoc
+        return otoc
+
+    def pauli_string_expectation(self, pauli_string):
         r"""
         Compute the infinite temperature expectation value for the (possibly) out of time
-        order local pauli string of operators in ``pauli_string'', at a time t. We do this by
-        writting the pauli string as a product of majorana fermion terms, and computing its
-        expectation value using Wick's theorem and the pfaffian matrix method, so only a matrix
-        of two body correlations within the many-body string need to be computed.
+        order local pauli string of operators in ``pauli_string'', on this instance's time mesh.
+        We do this by  writting the pauli string as a product of majorana fermion terms,
+        and computing its expectation value using Wick's theorem and the pfaffian matrix method,
+        so only a submatrix of two body correlations within the many-body string need to be computed.
         """
         return [self._pfaffian_helper(pauli_string, t) for t in self.t]
 
@@ -133,7 +190,7 @@ class Unitary:
 
         # generate the skew-symmetric matrix encoding the total expecation value to be
         # extracted via pfaffian
-        pf_mat = np.zeros((n, n), dtype=np.complex128)
+        pf_mat = np.zeros((n, n), dtype=np.complex)
         for i in range(n):
             for j in range(i + 1, n):
                 if maj_str.evo_bools[i] == maj_str.evo_bools[j]:
@@ -271,3 +328,11 @@ class Unitary:
         transformation of this hamiltonian
         """
         return self._H
+
+    @property
+    def T(self):
+        r"""
+        The change of basis matrix of the corresponding jordan-wigner transformation of this
+        hamiltonian
+        """
+        return self._T

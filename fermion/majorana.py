@@ -8,54 +8,6 @@ import itertools
 import tensorflow as tf
 
 
-class Majorana(Operator):
-    r"""
-    A class desciribing a quadratic multi-body Majorana-fermionic operator
-    """
-
-    def __init__(self, op_or_coef):
-        r"""
-        initialize the object
-        """
-        if isinstance(op_or_coef, Operator):
-            op = op_or_coef
-            T = np.kron([[1, 1], [-1j, 1j]] / np.sqrt(2), np.eye(n))
-            coef = {}
-            for k in op.components:
-                if k == 0:
-                    coef[0] = op.coef[0]
-                elif k == 1:
-                    coef[1] = T @ op.coef[1]
-                else:
-                    coef[k] = fm.tensor_change_of_basis(op.coef[k], T)
-            super().__init__(op.n_fermion, coef)
-        else:
-            # this step should be sanitized, but probably we will never instantiate directly
-            # from coeficients
-            super().__init__(len(op_or_coef[2]), op_or_coef)
-
-    def _maj_string(self, idx):
-        n = self.n_fermion
-        op_list = []
-        for i in idx:
-            if i < n:
-                op_list.append("A" + str(i))
-            else:
-                op_list.append("B" + str(i % n))
-        return "".join(op_list)
-
-    def __str__(self):
-        op = []
-        for comp, mat in self.coef.items():
-            if comp == 0 and mat != 0:
-                op.append(str(mat) + "*I")
-            else:
-                for idx, val in np.ndenumerate(mat):
-                    if val != 0:
-                        op.append(str(val) + "*" + self._maj_string(idx))
-        return "0" if len(op) == 0 else " + ".join(op)
-
-
 class PauliString:
     P_CHARS = ["X", "Y", "Z"]
 
