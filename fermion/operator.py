@@ -270,6 +270,7 @@ class Operator:
             w * self.coef[2][idx[0:2]] * other.coef[2][idx[2:4]]
             for idx, w in zip(idx_list, weights)
         )
+        return tr
 
     def commutator(self, other, use_speedup=True):
         r"""

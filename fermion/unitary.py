@@ -1,9 +1,9 @@
 from fermion.math import Math as fm
-from fermion.math import pfaffian
 from fermion.operator import Operator
 from fermion.majorana import PauliString, MajoranaString
 
 import numpy as np
+from pfapack import pfaffian as pf
 from math import e, pi, ceil
 
 
@@ -85,7 +85,7 @@ class Unitary:
         indices `idx1` and `idx2`, which can be written as the expectation value of
         `<Z_idx1(t) Z_idx2>`.
 
-        `idx1` and `idx2` must be integers in the range `[0, n_fermion]`.
+        `idx1` and `idx2` must be integers in the range `[0, n_fermion-1]`.
 
         returns a list of points evaluated on this instance's time mesh.
         """
@@ -110,7 +110,7 @@ class Unitary:
             for t in self.t
         ]
 
-    def global_OTOC(self, mu, nu):
+    def global_OTOC(self, mu, nu, use_true=False):
         r"""
         Computes the infinite temperature OTOC for global magnetization operators,
 
@@ -118,11 +118,25 @@ class Unitary:
 
         on this instance's time mesh.
         """
-        return [
-            np.real(np.sum(self.centered_OTOC_tensor(mu, nu, t))) - 1 for t in self.t
-        ]
+        if use_true:
+            return [
+                np.sum(self.true_OTOC_tensor(mu, nu, t)) / self.n_fermion
+                for t in self.t
+            ]
+        return [np.sum(self.centered_OTOC_tensor(mu, nu, t)) for t in self.t]
 
-    def centered_OTOC_tensor(self, mu, nu, t):
+    def OTOC_tensor_elem(self, mu, nu, a, b, c, d, t):
+        r"""
+        Returns the tensory element of the truly local OTOC computed under the assumption of
+        translational symmetry
+
+        T^{abcd} = - < [S_mu^{(a)}(t), S_nu^{(b)}] * [S_mu^{(c)}(t), S_nu^{(d)}] >,
+        """
+        center = int(self.n_fermion / 2)
+        delta = a - center
+        return self.centered_OTOC_tensor(mu, nu, t)[b + delta, c + delta, d + delta]
+
+    def centered_OTOC_tensor(self, mu, nu, t, use_mirror=False):
         r"""
         Returns the rank 3 centered OTOC tensor for two magnetization directions such that
         mu, nu \in {"X", "Y", "Z"}, corresponding to the relevant local paulis in the OTOC
@@ -130,7 +144,9 @@ class Unitary:
 
         T^{abc} = - < [S_mu^{(N/2)}(t), S_nu^{(a)}] * [S_mu^{(b)}(t), S_nu^{(c)}] >,
 
-        where a,b,c,d run over all spin sites, 1,2,...,N.
+        where a,b,c run over all spin sites, 1,2,...,N. If `use_mirror is `True`, a will only
+        run over one half of the chain, and we use mirror symmetry to get the other half, reducing
+        the computational cost by a factor of two.
 
         Encoded within contractions of this tensor are global, local, and semi-local OTOCs commonly
         seen in the literature, so long as the underlying hamiltonian is translationally invariant.
@@ -142,7 +158,50 @@ class Unitary:
             return self._cache["OTOC"][mu + nu][t]
         n = self.n_fermion
         center = int(n / 2)
-        otoc = np.zeros((n, n, n, n), dtype=np.complex)
+        otoc = np.zeros((n, n, n))
+
+        for a in range(self.n_fermion):
+            for b in range(self.n_fermion):
+                for c in range(self.n_fermion):
+                    term1 = PauliString(
+                        [mu, nu, mu, nu],
+                        [center, a, b, c],
+                        [True, False, True, False],
+                    )
+
+                    term2 = PauliString(
+                        [nu, mu, mu, nu],
+                        [a, center, b, c],
+                        [False, True, True, False],
+                    )
+                    otoc[a, b, c] = -2 * np.real(
+                        self._pfaffian_helper(term1, t)
+                        - self._pfaffian_helper(term2, t)
+                    )
+                    # if all(n - idx > 0 for idx in [a - 1, b - 1, c - 1]):
+                    #    otoc[n - a - 1, n - b - 1, n - c - 1] = otoc_elem
+
+        self._cache["OTOC"][mu + nu][t] = otoc
+        return otoc
+
+    def true_OTOC_tensor(self, mu, nu, t):
+        r"""
+        Returns the rank 4 OTOC tensor for two magnetization directions such that
+        mu, nu \in {"X", "Y", "Z"}, corresponding to the relevant local paulis in the OTOC
+        tensor,
+
+        T^{abc} = - < [S_mu^{(a)}(t), S_nu^{(b)}] * [S_mu^{(c)}(t), S_nu^{(d)}] >,
+
+        where a,b,c,d run over all spin sites, 1,2,...,N.
+
+        Encoded within contractions of this tensor are global, local, and semi-local OTOCs commonly
+        seen in the literature, so long as the underlying hamiltonian is translationally invariant.
+
+        This is for non-translationally invariant hamiltonians, and is not very efficient
+        """
+        n = self.n_fermion
+        center = int(n / 2)
+        otoc = np.zeros((n, n, n, n))
 
         for a in range(self.n_fermion):
             for b in range(self.n_fermion):
@@ -154,16 +213,16 @@ class Unitary:
                             [True, False, True, False],
                         )
 
-                        # term2 = PauliString(
-                        #    [nu, mu, mu, nu],
-                        #    [a, center, b, c],
-                        #    [False, True, True, False],
-                        # ) - self._pfaffian_helper(term2, t)
-                        otoc[a, b, c, d] = self._pfaffian_helper(term1, t)
-                        # if all(n - idx > 0 for idx in [a - 1, b - 1, c - 1]):
-                        #    otoc[n - a - 1, n - b - 1, n - c - 1] = otoc_elem
+                        term2 = PauliString(
+                            [nu, mu, mu, nu],
+                            [b, a, c, d],
+                            [False, True, True, False],
+                        )
+                        otoc[a, b, c, d] = -2 * np.real(
+                            self._pfaffian_helper(term1, t)
+                            - self._pfaffian_helper(term2, t)
+                        )
 
-        self._cache["OTOC"][mu + nu][t] = otoc
         return otoc
 
     def pauli_string_expectation(self, pauli_string):
@@ -184,39 +243,38 @@ class Unitary:
         # transform pauli string into majorana fermion representation
         maj_str = MajoranaString.from_pauli_string(pauli_string)
 
+        n = len(maj_str)
+        if n % 2 == 1:
+            return 0
+
         # compute all 2-body majorana expectation values ahead of time
         corr = self.majorana_two_body(t)
-        n = len(maj_str)
 
         # generate the skew-symmetric matrix encoding the total expecation value to be
         # extracted via pfaffian
-        pf_mat = np.zeros((n, n), dtype=np.complex)
+        pf_mat = np.zeros((n, n), dtype=np.complex128)
         for i in range(n):
             for j in range(i + 1, n):
+                idx1 = maj_str.sites[i] + self.n_fermion * int(
+                    maj_str.majoranas[i] == "B"
+                )
+                idx2 = maj_str.sites[j] + self.n_fermion * int(
+                    maj_str.majoranas[j] == "B"
+                )
+
                 if maj_str.evo_bools[i] == maj_str.evo_bools[j]:
                     # Case where both operators are evolved or neither are evolved (static case)
-                    pf_mat[i, j] = (
-                        0.5
-                        * int(maj_str.majoranas[i] == maj_str.majoranas[j])
-                        * int(maj_str.sites[i] == maj_str.sites[j])
-                    )
+                    pf_mat[i, j] = 0.5 * int(idx1 == idx2)
                 else:
                     # case where one only one operator is evolved (dynamic case)
-                    idx1 = maj_str.sites[i] + self.n_fermion * int(
-                        maj_str.majoranas[i] == "B"
-                    )
-                    idx2 = maj_str.sites[j] + self.n_fermion * int(
-                        maj_str.majoranas[j] == "B"
-                    )
-
                     if maj_str.evo_bools[i]:
                         # subcase where the first operator is evolved
                         pf_mat[i, j] = corr[idx1, idx2]
                     else:
                         # subcase where the second operator is evolved
                         pre = 1
-                        if (i < self.n_fermion and j > self.n_fermion) or (
-                            i > self.n_fermion and j < self.n_fermion
+                        if (idx1 < self.n_fermion and idx2 >= self.n_fermion) or (
+                            idx1 >= self.n_fermion and idx2 < self.n_fermion
                         ):
                             # fix ordering phase for upper right and lower left blocks
                             pre = -1
@@ -224,7 +282,10 @@ class Unitary:
 
         # anti-symmetrize
         pf_mat = pf_mat - pf_mat.transpose()
-        return maj_str.pre_factor * pfaffian(pf_mat)
+
+        # we need to chop here because the pfaffian package is unstable with small values,
+        # it checks float equality to 0 instead of `allclose`
+        return maj_str.pre_factor * pf.pfaffian(fm.chop(pf_mat))
 
     def majorana_two_body(self, t):
         r"""
