@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="mit-phd-awstasiuk",  # Replace with your own username
-    version="0.0.1",
+    version="0.0.5",
     author="Andrew Stasiuk",
     author_email="astasiuk@mit.edu",
     description="PhD Python stuff",

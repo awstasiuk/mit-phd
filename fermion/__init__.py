@@ -6,9 +6,11 @@ except DistributionNotFound:
     __version__ = "NotInstalledYet"
 
 import fermion.operator
+import fermion.majorana
 import fermion.math
 import fermion.unitary
 
 from fermion.operator import Operator
+from fermion.majorana import PauliString, MajoranaString
 from fermion.math import Math
 from fermion.unitary import Unitary

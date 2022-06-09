@@ -9,7 +9,7 @@ import tensorflow as tf
 
 class Operator:
     r"""
-    A class desciribing a quadratic multi-body fermionic operator
+    A class desciribing a up to quartic multi-body fermionic operators
     """
 
     def __init__(self, n_fermion, coef=None):
@@ -54,6 +54,21 @@ class Operator:
             else:
                 coef[k] = fm.tensor_change_of_basis(self.coef[k], F)
         return Operator(n, coef)
+
+    def adj(self):
+        r"""
+        Returns the adjoint of the operator.
+        """
+        n = self.n_fermion
+        SWAP = np.block(
+            [[np.zeros((n, n)), np.identity(n)], [np.identity(n), np.zeros((n, n))]]
+        )
+        new_coef = {}
+        for k in self.components:
+            new_coef[k] = np.conjugate(
+                fm.tensor_change_of_basis(self.coef[k], SWAP, reversed=True)
+            )
+        return Operator(n, new_coef)
 
     def normal_order(self):
         r"""
@@ -193,6 +208,70 @@ class Operator:
 
         return tr
 
+    def square_trace(self):
+        r"""
+        Return the trace of a quadratic operator squared, tr(O^2).
+        """
+        if not self.is_quadratic:
+            raise ValueError()
+
+        tr = 0
+        if 0 in self.components:
+            alph = self.coef[0]
+        idx_list, weights = fm.tw_four_body(self.n_fermion)
+
+        tr += alph**2
+        tr += alph * (
+            np.sum(np.diagonal(self.coef[2], self.n_fermion))
+            + np.sum(np.diagonal(self.coef[2], -self.n_fermion))
+        )
+        tr += sum(
+            w * self.coef[2][idx[0:2]] * self.coef[2][idx[2:4]]
+            for idx, w in zip(idx_list, weights)
+        )
+        return tr
+
+    def prod_trace(self, other):
+        r"""
+        Returns the trace of the product of this operator with another, as long as both
+        operators are quadratic, tr(A*B).
+        """
+        n = self.n_fermion
+        if n != other.n_fermion:
+            raise ValueError("invalid shapes")
+        if not (self.is_quadratic and other.is_quadratic):
+            raise ValueError()
+
+        tr = 0
+        if 0 in self.components:
+            alpha = self.coef[0]
+        if 0 in other.components:
+            beta = other.coef[0]
+        idx_list, weights = fm.tw_four_body(n)
+
+        tr += alpha * beta
+        tr += (
+            0.5
+            * alpha
+            * (
+                np.sum(np.diagonal(other.coef[2], n))
+                + np.sum(np.diagonal(other.coef[2], -n))
+            )
+        )
+        tr += (
+            0.5
+            * beta
+            * (
+                np.sum(np.diagonal(self.coef[2], n))
+                + np.sum(np.diagonal(self.coef[2], -n))
+            )
+        )
+        tr += sum(
+            w * self.coef[2][idx[0:2]] * other.coef[2][idx[2:4]]
+            for idx, w in zip(idx_list, weights)
+        )
+        return tr
+
     def commutator(self, other, use_speedup=True):
         r"""
         computes the commutator of two operators, returns the resulting operator,
@@ -217,45 +296,46 @@ class Operator:
 
             delta = tf.eye(n, dtype=tf.complex128)
 
-            aa3 = tf.einsum("ij,kl,li->jk", ca1, aa2, delta) - tf.einsum(
-                "ij,kl,ki->jl", ca1, aa2, delta
-            )
-            aa3 += -tf.einsum("kl,ij,li->kj", aa1, ca2, delta) + tf.einsum(
-                "kl,ij,ki->lj", aa1, ca2, delta
+            aa3 = tf.einsum("ij,kl,li", ca1, aa2, delta) - tf.einsum(
+                "ij,kl,ki", ca1, aa2, delta
             )
 
-            cc3 = tf.einsum("ij,kl,li->jk", cc1, ca2, delta) - tf.einsum(
-                "ij,kl,lj->ik", cc1, ca2, delta
+            aa3 += -tf.einsum("kl,ij,li", aa1, ca2, delta) + tf.einsum(
+                "kl,ij,ki", aa1, ca2, delta
             )
-            cc3 += -tf.einsum("kl,ij,li->kj", ca1, cc2, delta) + tf.einsum(
-                "kl,ij,lj->jl", ca1, cc2, delta
+
+            cc3 = tf.einsum("ij,kl,li", cc1, ca2, delta) - tf.einsum(
+                "ij,kl,lj", cc1, ca2, delta
+            )
+            cc3 += -tf.einsum("kl,ij,li", ca1, cc2, delta) + tf.einsum(
+                "kl,ij,lj", ca1, cc2, delta
             )
 
             ca3 = (
-                -tf.einsum("kl,ij,li->kj", aa1, cc2, delta)
-                + tf.einsum("kl,ij,ki->lj", aa1, cc2, delta)
-                + tf.einsum("kl,ij,lj->ki", aa1, cc2, delta)
-                - tf.einsum("kl,ij,kj->li", aa1, cc2, delta)
+                -tf.einsum("kl,ij,li", aa1, cc2, delta)
+                + tf.einsum("kl,ij,ki", aa1, cc2, delta)
+                + tf.einsum("kl,ij,lj", aa1, cc2, delta)
+                - tf.einsum("kl,ij,kj", aa1, cc2, delta)
             )
             ca3 += (
-                tf.einsum("ij,kl,li->jk", cc1, aa2, delta)
-                - tf.einsum("ij,kl,ki->jl", cc1, aa2, delta)
-                - tf.einsum("ij,kl,lj->ik", cc1, aa2, delta)
-                + tf.einsum("ij,kl,kj->il", cc1, aa2, delta)
+                tf.einsum("ij,kl,li", cc1, aa2, delta)
+                - tf.einsum("ij,kl,ki", cc1, aa2, delta)
+                - tf.einsum("ij,kl,lj", cc1, aa2, delta)
+                + tf.einsum("ij,kl,kj", cc1, aa2, delta)
             )
-            ca3 += tf.einsum("ij,kl,jk->il", ca1, ca2, delta) - tf.einsum(
+            ca3 += tf.einsum("ij,kl,jk", ca1, ca2, delta) - tf.einsum(
                 "ij,kl,li->kj", ca1, ca2, delta
             )
 
             id_term = -tf.einsum("ij,kl,li,kj", cc1, aa2, delta, delta) + tf.einsum(
-                "ij,kl,ki,lj", cc1, cc2, delta, delta
+                "ij,kl,ki,lj", cc1, aa2, delta, delta
             )
             id_term += tf.einsum("kl,ij,li,kj", aa1, cc2, delta, delta) - tf.einsum(
-                "kl,ij,ki,lj", cc1, cc2, delta, delta
+                "kl,ij,ki,lj", aa1, cc2, delta, delta
             )
 
-            comm[0:n, 0:n] = aa3.numpy().transpose()
-            comm[n : 2 * n, 0:n] = ca3.numpy().transpose()
+            comm[0:n, 0:n] = aa3.numpy()
+            comm[n : 2 * n, 0:n] = ca3.numpy()
             comm[n : 2 * n, n : 2 * n] = cc3.numpy()
             return Operator(self.n_fermion, {0: id_term.numpy(), 2: comm})
         return self * other - other * self
@@ -403,7 +483,7 @@ class Operator:
     def double_quantum(n_spin, B=0, J=1, periodic=False):
         r"""
         Generate the nearest neighbor double quantum Hamiltonian quadratic form,
-        `H=B*Sz + J*Sum(XX+YY)`
+        `H=B*Sz + J*Sum(XX-YY)`
 
         `B` can be specified as a `double` or an `iterable` of length `n_spin` to
         generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
@@ -429,7 +509,7 @@ class Operator:
     def flipflop(n_spin, B=0, J=1, periodic=False):
         r"""
         Generate the nearest neighbor flip-flop Hamiltonian quadratic form,
-        `H=B*Sz + J*Sum(XX-YY)`
+        `H=B*Sz + J*Sum(XX+YY)`
 
         `B` can be specified as a `double` or an `iterable` of length `n_spin` to
         generate a Hamiltonian with disorder. By default, B=0, J=1, and the boundary
@@ -440,7 +520,7 @@ class Operator:
             A = np.diag(B)
         else:
             A = -B * np.identity(n_spin)
-        A += J * (np.diag(np.ones(n_spin - 1), 1) - np.diag(np.ones(n_spin - 1), -1))
+        A += J * (np.diag(np.ones(n_spin - 1), 1) + np.diag(np.ones(n_spin - 1), -1))
         if periodic:
             if n_spin % 2 == 0:
                 A[0, n_spin - 1] = J
@@ -555,3 +635,6 @@ class Operator:
                     if val != 0:
                         op.append(str(val) + "*" + self._ferm_string(idx))
         return "0" if len(op) == 0 else " + ".join(op)
+
+    def __repr__(self):
+        return str(self)

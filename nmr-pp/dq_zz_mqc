@@ -1,0 +1,91 @@
+; 20220606
+; ZZ MQC Expt under Hamiltonian (cnst1)*XX - (cnst1)*YY
+; td2 determines max time to evolve
+; td1 is number of mqc experiments. Should be 72 for this pp.
+
+define delay tau1
+"tau1=d3-p1/2"
+define delay tau2
+"tau2=d3*(1-cnst1)-p1"
+define delay tau3
+"tau3=2*d3*(1+cnst1)-p1"
+
+define delay tau1r
+"tau1r=d3-p1/2"
+define delay tau2r
+"tau2r=d3*(1+cnst1)-p1"
+define delay tau3r
+"tau3r=2*d3*(1-cnst1)-p1"
+
+define delay cycle
+"cycle=24*d3"
+
+"l10=0"
+
+1  ze
+
+2
+    d1 rpp10 rpp11 rpp12 rpp13 rpp14 rpp15 rpp16 rpp17
+    cycle pl2:f2
+
+3
+    tau1
+    (p1 ph10^):f2
+    tau2
+    (p1 ph11^):f2
+    tau3
+    (p1 ph12^):f2
+    tau2
+    (p1 ph13^):f2
+    tau1
+
+    lo to 3 times l10
+
+4
+    tau1r
+    (p1 ph14^):f2
+    tau2r
+    (p1 ph15^):f2
+    tau3r
+    (p1 ph16^):f2
+    tau2r
+    (p1 ph17^):f2
+    tau1r
+
+    lo to 4 times l10
+
+    d13
+    (p1 ph6):f2
+
+    go=2 ph31
+    1m wr #0 if #0
+
+    ; increase time evolution counters, re-loop
+    1m iu10
+    1m iu10
+    1m iu10
+    1m iu10
+    lo to 2 times td2
+
+    ; incremement phase programs, reset time evolution
+    10u ip14*5
+    10u ip15*5
+    10u ip16*5
+    10u ip17*5
+    1m ru10
+    lo to 2 times td1
+
+  exit
+
+ph10 = (360) 0 0 180 180
+ph11 = (360) 90 90 270 270
+ph12 = (360) 90 90 270 270
+ph13 = (360) 0 0 180 180
+
+ph14 = (360) 0 0 180 180
+ph15 = (360) 90 90 270 270
+ph16 = (360) 90 90 270 270
+ph17 = (360) 0 0 180 180
+
+ph6 = 1 3
+ph31 = 0  2

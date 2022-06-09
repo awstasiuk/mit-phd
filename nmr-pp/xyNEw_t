@@ -1,0 +1,36 @@
+; 20210106
+; baseline XY autocorrelation 
+; no solid echo
+; a waiting at the end
+; 2u in front of the seq
+; created by Pai Peng
+
+
+#include <Avance.incl>
+define list<delay> tlist={0.000002 0.000003 0.000004 0.000005 0.000006}
+1  ze
+   
+2  d1 
+   1m pl2:f2
+
+   (p1 ph14):f2
+   tlist
+
+   (p1 ph16):f2
+   1m
+   (p1 ph4):f2   
+
+   go=2 ph31
+  1m wr #0 if #0
+
+  5m tlist.inc
+  lo to 2 times td1
+
+  exit  
+
+
+ph14=  (360) 260 260 80 80
+ph16=  2 2 0 0
+
+ph4=  0 2
+ph31= 3 1
