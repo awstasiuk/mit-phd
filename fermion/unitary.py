@@ -233,7 +233,10 @@ class Unitary:
         and computing its expectation value using Wick's theorem and the pfaffian matrix method,
         so only a submatrix of two body correlations within the many-body string need to be computed.
         """
-        return [self._pfaffian_helper(pauli_string, t) for t in self.t]
+        return np.array(
+            [self._pfaffian_helper(pauli_string, t) for t in self.t],
+            dtype=np.complex128,
+        )
 
     def _pfaffian_helper(self, pauli_string, t):
         r"""

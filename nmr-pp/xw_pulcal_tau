@@ -1,0 +1,36 @@
+#include <Avance.incl>
+
+; xw_pulcal_tau
+; 27 May 2022
+
+; vary pulse length to determine pi/4 and pi pulse length (via p2)
+"l1=0"
+
+; try different pulse lengths for different pulses!
+
+1 ze
+
+2 30m
+  d1
+
+  20u pl2:f2
+
+
+3 (p2 ph1):f2
+
+  lo to 3 times l1
+
+  go=2 ph31
+
+  1m wr #0 if #0
+
+  ; increase evolution time by 1 cycle length, and re-scan
+  1m iu1
+  lo to 2 times td1
+
+exit
+
+ph4=0 2
+
+ph1 = 1 3 3 1
+ph31 = 0 2 2 0
