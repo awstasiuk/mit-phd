@@ -1,7 +1,5 @@
 ; 20220606
 ; ZZ MQC Expt under Hamiltonian (cnst1)*XX - (cnst1)*YY
-; td2 determines max time to evolve
-; td1 is number of mqc experiments. Should be 72 for this pp.
 
 define delay tau1
 "tau1=d3-p1/2"
@@ -68,10 +66,10 @@ define delay cycle
     lo to 2 times td2
 
     ; incremement phase programs, reset time evolution
-    10u ip14*5
-    10u ip15*5
-    10u ip16*5
-    10u ip17*5
+    10u ip14*18
+    10u ip15*18
+    10u ip16*18
+    10u ip17*18
     1m ru10
     lo to 2 times td1
 
