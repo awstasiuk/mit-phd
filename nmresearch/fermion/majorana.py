@@ -1,5 +1,5 @@
-from fermion.math import Math as fm
-from fermion.operator import Operator
+from nmresearch.fermion.math import Math as fm
+from nmresearch.fermion.operator import Operator
 
 import numpy as np
 from scipy import linalg as la

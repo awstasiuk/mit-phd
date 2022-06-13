@@ -1,4 +1,4 @@
-from fermion.math import Math as fm
+from nmresearch.fermion.math import Math as fm
 
 import numpy as np
 from scipy import linalg as la

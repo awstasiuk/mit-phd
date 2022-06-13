@@ -1,6 +1,6 @@
-from fermion.math import Math as fm
-from fermion.operator import Operator
-from fermion.majorana import PauliString, MajoranaString
+from nmresearch.fermion.math import Math as fm
+from nmresearch.fermion.operator import Operator
+from nmresearch.fermion.majorana import PauliString, MajoranaString
 
 import numpy as np
 from pfapack import pfaffian as pf
