@@ -99,13 +99,13 @@ class MajoranaString:
                 evo_bools.extend([evo, evo])
                 pre = pre * -2j
             elif pauli in ["X", "Y"]:
-                majoranas.extend([c for _ in range(1, j) for c in ["A", "B"]])
-                sites.extend([idx for i in range(1, j) for idx in [i, i]])
-                evo_bools.extend([ev for _ in range(1, j) for ev in [evo, evo]])
+                majoranas.extend([c for _ in range(j) for c in ["A", "B"]])
+                sites.extend([idx for i in range(j) for idx in [i, i]])
+                evo_bools.extend([ev for _ in range(j) for ev in [evo, evo]])
 
                 sites.append(j)
                 evo_bools.append(evo)
-                pre = pre * (-2j) ** (j - 1) * np.sqrt(2)
+                pre = pre * (-2j) ** (j) * np.sqrt(2)
                 if pauli == "X":
                     majoranas.append("A")
                     pre = -1 * pre

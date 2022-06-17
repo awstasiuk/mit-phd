@@ -144,7 +144,7 @@ class Unitary:
 
         T^{abc} = - < [S_mu^{(N/2)}(t), S_nu^{(a)}] * [S_mu^{(b)}(t), S_nu^{(c)}] >,
 
-        where a,b,c run over all spin sites, 1,2,...,N. If `use_mirror is `True`, a will only
+        where a,b,c run over all spin sites, 0,1,...,N-1. If `use_mirror is `True`, a will only
         run over one half of the chain, and we use mirror symmetry to get the other half, reducing
         the computational cost by a factor of two.
 
@@ -160,9 +160,9 @@ class Unitary:
         center = int(n / 2)
         otoc = np.zeros((n, n, n))
 
-        for a in range(self.n_fermion):
-            for b in range(self.n_fermion):
-                for c in range(self.n_fermion):
+        for a in range(n):
+            for b in range(n):
+                for c in range(n):
                     term1 = PauliString(
                         [mu, nu, mu, nu],
                         [center, a, b, c],
@@ -192,7 +192,7 @@ class Unitary:
 
         T^{abc} = - < [S_mu^{(a)}(t), S_nu^{(b)}] * [S_mu^{(c)}(t), S_nu^{(d)}] >,
 
-        where a,b,c,d run over all spin sites, 1,2,...,N.
+        where a,b,c,d run over all spin sites, 0,1,...,N-1.
 
         Encoded within contractions of this tensor are global, local, and semi-local OTOCs commonly
         seen in the literature, so long as the underlying hamiltonian is translationally invariant.
@@ -200,13 +200,12 @@ class Unitary:
         This is for non-translationally invariant hamiltonians, and is not very efficient
         """
         n = self.n_fermion
-        center = int(n / 2)
         otoc = np.zeros((n, n, n, n))
 
-        for a in range(self.n_fermion):
-            for b in range(self.n_fermion):
-                for c in range(self.n_fermion):
-                    for d in range(self.n_fermion):
+        for a in range(n):
+            for b in range(n):
+                for c in range(n):
+                    for d in range(n):
                         term1 = PauliString(
                             [mu, nu, mu, nu],
                             [a, b, c, d],

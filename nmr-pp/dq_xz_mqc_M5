@@ -71,6 +71,7 @@ define delay cycle
     lo to 2 times td2
 
     ; incremement phase programs, reset time evolution
+    10u ip6*36
     10u ip14*36
     10u ip15*36
     10u ip16*36

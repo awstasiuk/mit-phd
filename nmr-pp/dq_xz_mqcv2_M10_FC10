@@ -67,6 +67,8 @@ define delay cycle
     5m ip15*18
     5m ip16*18
     5m ip17*18
+    ; increment observable pulse
+    10u ip5*18
     lo to 2 times td2
 
     ; increase time evolution counters, add additional FC offset to rev evolution
@@ -74,7 +76,7 @@ define delay cycle
     1m iu10
     1m iu10
     1m iu10
-    5m ip5*160
+    5m ip5*320
     5m ip14*160
     5m ip15*160
     5m ip16*160

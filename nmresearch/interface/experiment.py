@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import nmrglue as ng
 import numpy as np
+from scipy.interpolate import CubicSpline
 
 
 class Experiment:
@@ -71,6 +72,30 @@ class Experiment:
 
         overrot_angle = phase_inc * (np.argmin(norms))
         print("Over-rotation angle is given by " + str(overrot_angle) + " deg.")
+
+    def tpc(self, use_real=True, title="TPC Experiment", dipolar=False):
+        cycle = 24 * 5  # Ken16 Cycle Length in us
+        t_list = list(range(0, self.td[0] * cycle, cycle))
+        if not dipolar:
+            vals = (
+                np.real(self.nmr_data[:, 0])
+                if use_real
+                else np.imag(self.nmr_data[:, 0])
+            )
+        else:
+            vals = np.imag(self.nmr_data[:, 1])
+        cs = CubicSpline(t_list, vals)
+        xs = np.arange(t_list[0], t_list[-1], 1)
+
+        plt.scatter(t_list, vals, marker="o", label="data")
+        plt.plot(xs, cs(xs), "g", label="Cubic Spline")
+        plt.xlabel("Evolution time (us)")
+        plt.ylabel("(Absolute) Signal Intensity")
+        plt.title(title)
+        plt.legend()
+        plt.show()
+
+        return vals
 
     def mqc(self, enc_td2=True):
         cycle = 24 * 5.0
@@ -156,14 +181,20 @@ class Experiment:
 
         otoc = sum([(q**2) * intensity for q, intensity in enumerate(Iqt)])
         normalizer = fidelity
-        plt.plot(
+
+        vals = [np.abs(val / norm) for val, norm in zip(otoc, normalizer)]
+        cs = CubicSpline(t_list, vals)
+        xs = np.arange(t_list[0], t_list[-1], 1)
+        plt.scatter(
             t_list,
-            [8 * np.abs(val / norm) for val, norm in zip(otoc, normalizer)],
-            label="Full MQC Summation",
+            vals,
+            label="data",
         )
+        plt.plot(xs, cs(xs), "g", label="Cubic Spline")
         plt.xlabel("Evolution Time (us)")
         plt.ylabel("(Normalized) Signal Intensity")
         plt.title("<|[O(t),P]|^2> = Sum(q^2 * I_q(t)) / Fidelity(t)")
+        plt.legend()
         plt.show()
 
         return mqc
