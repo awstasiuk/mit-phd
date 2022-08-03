@@ -1,0 +1,80 @@
+; 25 July 2022
+; Andrew Stasiuk
+;
+; ZZ Correlation under periodic kicking
+; Discrete Time Crystal Experiments
+; Scrambling time variable
+; Disorder Strenght Variable
+; 9 deg Framechange
+; theta=170
+
+; td1 = N_max , max number of kick & scramble cycles (up to 50)
+; d15 >= 10us (delay primitive for echo sequence), disorder cancellation length is 2*d15
+
+define list<delay> delta = {0.000000 0.00005 0.000010 0.000015 0.000020}
+
+define delay tau
+"tau = (d15-delta)/2"
+
+define delay tau1
+"tau1 = (tau-2*p1-.0000025)/2"
+define delay tau0
+"tau0 = tau-2*p1-.0000025"
+
+"l1=0"
+
+1  ze
+
+2   ; state prep
+    d1 rpp0 rpp1 rpp2 rpp3 rpp4 rpp5
+    100u pl2:f2
+
+3   ; Echo
+    tau1
+
+    (p1 ph0^):f2
+    2.5u
+    (p1 ph1^):f2
+
+    tau0
+
+    (p1 ph2^):f2
+    2.5u
+    (p1 ph3^):f2
+
+    tau1
+
+4   ; Rx(theta)
+    (p1 ph4^):f2
+    2.5u
+    (p1 ph5^):f2
+
+    lo to 3 times l1
+
+    ; measure
+    d13
+    (p1 ph6):f2
+
+    go=2 ph31
+    1m wr #0 if #0
+
+    ; increase number of kicking cycles
+    1m iu1
+    lo to 2 times td2
+
+    5m ru1
+    5m delta.inc
+    lo to 2 times td1
+
+  exit
+
+ph0 = (360) 0 264 168 72 336 240 144 48 312 216 120 24 288 192 96 0 264 168 72 336 240 144 48 312 216 120 24 288 192 96 0 264 168 72 336 240 144 48 312 216 120 24 288 192 96 0 264 168 72 336
+ph1 = (360) 9 273 177 81 345 249 153 57 321 225 129 33 297 201 105 9 273 177 81 345 249 153 57 321 225 129 33 297 201 105 9 273 177 81 345 249 153 57 321 225 129 33 297 201 105 9 273 177 81 345
+ph2 = (360) 198 102 6 270 174 78 342 246 150 54 318 222 126 30 294 198 102 6 270 174 78 342 246 150 54 318 222 126 30 294 198 102 6 270 174 78 342 246 150 54 318 222 126 30 294 198 102 6 270 174
+ph3 = (360) 207 111 15 279 183 87 351 255 159 63 327 231 135 39 303 207 111 15 279 183 87 351 255 159 63 327 231 135 39 303 207 111 15 279 183 87 351 255 159 63 327 231 135 39 303 207 111 15 279 183
+
+ph4 = (360) 306 210 114 18 282 186 90 354 258 162 66 330 234 138 42 306 210 114 18 282 186 90 354 258 162 66 330 234 138 42 306 210 114 18 282 186 90 354 258 162 66 330 234 138 42 306 210 114 18 282
+ph5 = (360) 345 249 153 57 321 225 129 33 297 201 105 9 273 177 81 345 249 153 57 321 225 129 33 297 201 105 9 273 177 81 345 249 153 57 321 225 129 33 297 201 105 9 273 177 81 345 249 153 57 321
+
+ph6 = 1 3 3 1
+ph31 = 0 2 2 0

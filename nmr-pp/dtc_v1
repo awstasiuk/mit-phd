@@ -1,0 +1,48 @@
+; 21 June 2022
+; Andrew Stasiuk
+;
+; ZZ Correlation under periodic kicking
+; Discrete Time Crystal Experiments, version 1
+; Scrambling time at 120u
+; 10 deg Framechange
+
+; td2 = N_max (max number of kick & scramble cycles)
+; td3 = theta variation dim
+
+define delay scramble
+"scramble=120u"
+
+"l1=0"
+
+1  ze
+
+2   ; state prep
+    d1 rpp10 rpp11
+    cycle pl2:f2
+
+3   ; periodic kicking & scrambling
+    (p1 ph10):f2
+    2.5u
+    (p1 ph11):f2
+    scramble
+
+    lo to 3 times l1
+
+    ; measure
+    d13
+    (p1 ph6):f2
+
+    go=2 ph31
+    1m wr #0 if #0
+
+    ; increase number of kicking cycles
+    1m iu1
+    lo to 2 times td1
+
+  exit
+
+ph10 = (360) 90 310 170 30 250 110 330 190 50 270 130 350 210 70 290 150 10 230 90 310 170 30 250 110 330 190 50 270 130 350
+ph11 = (360) 120 340 200 60 280 140 0 220 80 300 160 20 240 100 320 180 40 260 120 340 200 60 280 140 0 220 80 300 160 20
+
+ph6 = 1 3
+ph31 = 0  2

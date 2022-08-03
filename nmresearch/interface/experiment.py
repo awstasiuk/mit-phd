@@ -64,7 +64,12 @@ class Experiment:
         plt.show()
 
         norms = [sum(abs(signal[k, :])) for k in range(self.td[0])]
-        plt.plot(list(range(0, phase_inc * (signal.shape[0]), phase_inc)), norms)
+        phases = np.array(range(0, phase_inc * (signal.shape[0]), phase_inc))
+        plt.scatter(phases, norms)
+        cs = CubicSpline(phases, norms)
+        xs = np.arange(phases[0], phases[-1], phase_inc / 50)
+        plt.plot(xs, cs(xs), "g", label="Cubic Spline")
+
         plt.xlabel("Frame Change Offset")
         plt.title("1-norm of Pulse Error")
         plt.ylabel("(Absolute) Deviation from Ideal")
@@ -73,8 +78,38 @@ class Experiment:
         overrot_angle = phase_inc * (np.argmin(norms))
         print("Over-rotation angle is given by " + str(overrot_angle) + " deg.")
 
-    def tpc(self, use_real=True, title="TPC Experiment", dipolar=False):
-        cycle = 24 * 5  # Ken16 Cycle Length in us
+    def fid(self, use_real=True, add_spline=True, normalize=True, title="FID"):
+        vals = np.real(self.nmr_data) if use_real else np.imag(self.nmr_data)
+        if normalize:
+            vals = vals / vals[0]
+
+        if use_real:
+            t_list = [20 + 2 * i * 3.350 for i in range(len(vals))]
+        else:
+            t_list = [20 + (2 * i + 1) * 3.350 for i in range(len(vals))]
+
+        if add_spline:
+            cs = CubicSpline(t_list, vals)
+            xs = np.arange(t_list[0], t_list[-1], 1)
+            plt.plot(xs, cs(xs), "g", label="Cubic Spline")
+        plt.scatter(t_list, vals, marker="o", label="data", s=1)
+        plt.xlabel("Evolution time (us)")
+        plt.ylabel("(Absolute) Signal Intensity")
+        plt.title(title)
+        plt.legend()
+        plt.show()
+
+        return vals
+
+    def tpc(
+        self,
+        use_real=True,
+        title="TPC Experiment",
+        dipolar=False,
+        add_spline=True,
+        normalize=True,
+        cycle=120,
+    ):
         t_list = list(range(0, self.td[0] * cycle, cycle))
         if not dipolar:
             vals = (
@@ -84,17 +119,37 @@ class Experiment:
             )
         else:
             vals = np.imag(self.nmr_data[:, 1])
-        cs = CubicSpline(t_list, vals)
-        xs = np.arange(t_list[0], t_list[-1], 1)
 
+        if normalize:
+            vals = vals / vals[0]
+
+        if add_spline:
+            cs = CubicSpline(t_list, vals)
+            xs = np.arange(t_list[0], t_list[-1], cycle / 100)
+            plt.plot(xs, cs(xs), "g", label="Cubic Spline")
         plt.scatter(t_list, vals, marker="o", label="data")
-        plt.plot(xs, cs(xs), "g", label="Cubic Spline")
         plt.xlabel("Evolution time (us)")
         plt.ylabel("(Absolute) Signal Intensity")
         plt.title(title)
         plt.legend()
         plt.show()
 
+        return vals
+
+    def load_tpc3d(self, use_real=True, dipolar=False, normalize=True):
+        if not dipolar:
+            vals = (
+                np.real(self.nmr_data[:, :, 0])
+                if use_real
+                else np.imag(self.nmr_data[:, :, 0])
+            )
+        else:
+            vals = np.imag(self.nmr_data[:, :, 1])
+
+        # normalize signal
+        if normalize:
+            for idx, expt in enumerate(vals):
+                vals[idx] = expt / max(expt)
         return vals
 
     def mqc(self, enc_td2=True):

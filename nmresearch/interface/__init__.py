@@ -6,5 +6,7 @@ except DistributionNotFound:
     __version__ = "NotInstalledYet"
 
 import nmresearch.interface.experiment
+import nmresearch.interface.pp_gen
 
 from nmresearch.interface.experiment import Experiment
+from nmresearch.interface.pp_gen import PulseProgram

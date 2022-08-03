@@ -1,0 +1,51 @@
+; 20210115
+; ZZ autocorrelation with yxx24 with rectangular pulses
+; no solid echo
+; a waiting at the end
+; 3u in front of the seq
+; created by Pai Peng
+
+
+#include <Avance.incl>
+"d12=d4-p1"
+"l10=6"
+1  ze
+
+2  d1 rpp0 rpp1 rpp2 rpp3
+  1m pl2:f2
+
+3  (p1 ph0^):f2
+   d12
+   (p1 ph1^):f2
+   d12
+   (p1 ph2^):f2
+   d12
+   (p1 ph3^):f2
+   d12
+
+  lo to 3 times l10
+  1m
+  (p1 ph20):f2
+
+  go=2 ph31
+
+  1m wr #0 if #0
+
+  5m iu10
+  5m iu10
+  5m iu10
+  5m iu10
+  5m iu10
+  5m iu10
+
+  lo to 2 times td1
+
+  exit
+
+ph0 = 3 2 0 1 0 2
+ph1 = 0 2 3 2 0 1
+ph2 = 2 1 0 0 3 2
+ph3 = 1 2 0 1 0 2
+
+ph20= 0 2
+ph31= 3 1

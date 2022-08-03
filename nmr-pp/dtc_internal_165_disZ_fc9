@@ -1,0 +1,126 @@
+; 13 July 2022
+; Andrew Stasiuk
+;
+; rZrZ Correlation under periodic kicking
+; Discrete Time Crystal Experiments
+; Scrambling time variable
+; 9 deg Framechange
+; theta=165
+;
+; td2 = N_max , max number of kick & scramble cycles (up to 50)
+; td1 = length of scramble list, variable Dz scrambling delays
+; NS = 8 (or 16 if desired)
+
+define list<delay> scramble = {0.000005 0.000010 0.000015 0.000030 0.000045 0.000060}
+
+; WAHUHA8 delays
+define delay delay0
+"delay0=(2*d20-p1)/2"
+define delay delay1
+"delay1=d20-p1"
+define delay delay2
+"delay2=(2*d20-p1)"
+
+"l1=0"
+
+1  ze
+
+2   ; state & pp reset delay
+    d1 rpp1 rpp2 rpp3 rpp4 rpp6 rpp7 rpp9 rpp10 rpp11 rpp12
+    100u pl2:f2
+
+; Random Zeeman State Preparation
+    (p1 ph0):f2
+
+3   ; Repeated WAHUHA8 to encode random state (18 cycles)
+    delay0
+    (p1 ph1^):f2
+    delay1
+    (p1 ph2^):f2
+    delay2
+    (p1 ph3^):f2
+    delay1
+    (p1 ph4^):f2
+    delay0
+    lo to 3 times 36
+
+    (p1 ph5):f2
+    2.5u
+
+; Hamiltonian Evolution
+4   ; periodic kicking & scrambling
+    (p1 ph6^):f2
+    2.5u ; Rz(175)
+    (p1 ph7^):f2
+    scramble
+    lo to 4 times l1
+
+; Random Zeeman Observable Engineering
+    (p1 ph8):f2
+
+5   ; Repeated WAHUHA8 to encode random observable (18 cycles)
+    delay0
+    (p1 ph9^):f2
+    delay1
+    (p1 ph10^):f2
+    delay2
+    (p1 ph11^):f2
+    delay1
+    (p1 ph12^):f2
+    delay0
+    lo to 5 times 36
+
+    ; shelf in Z, then measure
+    (p1 ph13):f2
+    d13
+    (p1 ph14):f2
+
+    go=2 ph31
+    1m wr #0 if #0
+
+    ; increase number of kicking cycles
+    5m iu1
+    20m ip8*213
+    20m ip9*213
+    20m ip10*213
+    20m ip11*213
+    20m ip12*213
+    20m ip13*213
+    lo to 2 times td2
+
+    ; increment scrambling time, reset phase programs
+    5m scramble.inc
+    20m rp8
+    20m rp9
+    20m rp10
+    20m rp11
+    20m rp12
+    20m rp13
+    5m ru1
+    lo to 2 times td1
+
+  exit
+
+  ph0 = (360) 270 270 90 90
+
+  ph1 = (360) 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9
+  ph2 = (360) 108 324 180 36 252 108 324 180 36 252 108 324 180 36 252 108 324 180 36 252 108 324 180 36 252 108 324 180 36 252 108 324 180 36 252 108
+  ph3 = (360) 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297 153 9 225 81 297
+  ph4 = (360) 216 72 288 144 0 216 72 288 144 0 216 72 288 144 0 216 72 288 144 0 216 72 288 144 0 216 72 288 144 0 216 72 288 144 0 216
+
+  ph5 = (360) 225 225 225 225 45 45 45 45
+
+  ph6 = (360) 144 357 210 63 276 129 342 195 48 261 114 327 180 33 246 99 312 165 18 231 84 297 150 3 216 69 282 135 348 201 54 267 120 333 186 39 252 105 318 171 24 237 90 303 156 9 222 75 288 141
+  ph7 = (360) 168 21 234 87 300 153 6 219 72 285 138 351 204 57 270 123 336 189 42 255 108 321 174 27 240 93 306 159 12 225 78 291 144 357 210 63 276 129 342 195 48 261 114 327 180 33 246 99 312 165
+
+  ph8 = (360) 234 234 234 234 234 234 234 234 54 54 54 54 54 54 54 54
+
+  ph9 = (360) 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243
+  ph10 = (360) 342 198 54 270 126 342 198 54 270 126 342 198 54 270 126 342 198 54 270 126 342 198 54 270 126 342 198 54 270 126 342 198 54 270 126 342
+  ph11 = (360) 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171 27 243 99 315 171
+  ph12 = (360) 90 306 162 18 234 90 306 162 18 234 90 306 162 18 234 90 306 162 18 234 90 306 162 18 234 90 306 162 18 234 90 306 162 18 234 90
+
+  ph13 = (360) 9 9 189 189
+
+  ph14 = 0 2 0 2
+  ph31 = 1 3 1 3 3 1 3 1 3 1 3 1 1 3 1 3
