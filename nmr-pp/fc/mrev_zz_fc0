@@ -1,0 +1,59 @@
+; 13 April 2023
+; MREV-8
+; No Framechange
+; d20 should be at least p1+2.5u
+
+; WAHUHA8 delays
+define delay delay0
+"delay0=(2*d20-p1)/2"
+define delay delay1
+"delay1=d20-p1"
+define delay delay2
+"delay2=(2*d20-p1)"
+
+define delay cycle
+"cycle=12*d20";
+
+"l10=0"
+
+1 ze
+
+2
+  d1 rpp1 rpp2 rpp3 rpp0
+  100u pl2:f2
+
+3   ; Repeated WAHUHA8
+    delay0
+    (p1 ph0^):f2
+    delay1
+    (p1 ph1^):f2
+    delay2
+    (p1 ph2^):f2
+    delay1
+    (p1 ph3^):f2
+    delay0
+    lo to 3 times l10
+
+    1m
+    (p1 ph30):f2
+
+   go=2 ph31
+
+
+   50m wr #0 if #0
+
+   5m iu10
+   5m iu10
+
+   lo to 2 times td1
+
+
+   exit
+
+ ph0=0 2
+ ph1=1 3
+ ph2=3 1
+ ph3=2 0
+
+ ph30 = 0 2
+ ph31 = 3 1

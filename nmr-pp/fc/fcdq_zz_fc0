@@ -1,0 +1,112 @@
+; 18 January 2023
+; Andrew Stasiuk
+; ZZ Loschmidt echo under (cnst1)*XX - (cnst1)*YY
+; No frame change
+
+; cnst1 = {0, .02, .04, .06, .08, .10} (td1=6)
+define list<delay> tau1 = {0.00000449 0.00000449 0.00000449 0.00000449 0.00000449 0.00000449}
+define list<delay> tau2 = {0.00000398 0.00000388 0.00000378 0.00000368 0.00000358 0.00000348}
+define list<delay> tau3 = {0.00000398 0.00000408 0.00000418 0.00000428 0.00000438 0.00000448}
+
+define list<delay> tau1r = {0.00000449 0.00000449 0.00000449 0.00000449 0.00000449 0.00000449}
+define list<delay> tau2r = {0.00000398 0.00000408 0.00000418 0.00000428 0.00000438 0.00000448}
+define list<delay> tau3r = {0.00000398 0.00000388 0.00000378 0.00000368 0.00000358 0.00000348}
+
+define delay cycle
+"cycle=24*d3"
+
+"l1=0"
+
+1   ze
+    ; increment the time reversal phase programs by fc*16
+    ; 5m ip14*160
+    ; 5m ip15*160
+    ; 5m ip16*160
+    ; 5m ip17*160
+
+2
+    d1 rpp0 rpp1 rpp2 rpp3 rpp4 rpp5 rpp6 rpp7
+    cycle pl2:f2
+
+3
+    tau1
+    (p1 ph0^):f2
+    tau2
+    (p1 ph1^):f2
+    tau3
+    (p1 ph2^):f2
+    tau2
+    (p1 ph3^):f2
+    tau1
+
+    lo to 3 times l1
+
+4
+    tau1r
+    (p1 ph4^):f2
+    tau2r
+    (p1 ph5^):f2
+    tau3r
+    (p1 ph6^):f2
+    tau2r
+    (p1 ph7^):f2
+    tau1r
+
+    lo to 4 times l1
+
+    1m
+    (p1 ph30):f2
+
+    go=2 ph31
+    1m wr #0 if #0
+
+    ; increase time evolution counters
+    1m iu1
+    1m iu1
+    1m iu1
+    1m iu1
+
+    ; increment the time reversal phase programs by fc*16 to account for additional evolution
+    ; 5m ip4*160
+    ; 5m ip5*160
+    ; 5m ip6*160
+    ; 5m ip7*160
+    lo to 2 times td2
+
+    ; increment scrambling constants, reset phase programs
+    5m tau1.inc
+    5m tau2.inc
+    5m tau3.inc
+
+    5m tau1r.inc
+    5m tau2r.inc
+    5m tau3r.inc
+
+
+    25m rp0
+    25m rp1
+    25m rp2
+    25m rp3
+    25m rp4
+    25m rp5
+    25m rp6
+    25m rp7
+
+    5m ru1
+    lo to 2 times td1
+
+  exit
+
+ph0 = (360) 0 0 180 180
+ph1 = (360) 90 90 270 270
+ph2 = (360) 90 90 270 270
+ph3 = (360) 0 0 180 180
+
+ph4 = (360) 0 0 180 180
+ph5 = (360) 90 90 270 270
+ph6 = (360) 90 90 270 270
+ph7 = (360) 0 0 180 180
+
+
+ph30 = 1 3
+ph31 = 0  2

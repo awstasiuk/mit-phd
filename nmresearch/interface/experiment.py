@@ -19,11 +19,11 @@ class Experiment:
         - Computing OTOC from MQC data results
     """
 
-    def __init__(self, expt_no, data_path=None):
+    def __init__(self, expt_no, folder="expt8", data_path=None):
         self.data_path = (
             "C:\\Users\\awsta\\Dropbox\\NMR_Data" if data_path is None else data_path
         )
-        self.file = self.data_path + "\\" + str(expt_no)
+        self.file = self.data_path + "\\" + folder + "\\" + str(expt_no)
         self.nmr_dic, self.nmr_data = ng.fileio.bruker.read(self.file)
         self.td = self.nmr_data.shape
 
@@ -78,28 +78,40 @@ class Experiment:
         overrot_angle = phase_inc * (np.argmin(norms))
         print("Over-rotation angle is given by " + str(overrot_angle) + " deg.")
 
-    def fid(self, use_real=True, add_spline=True, normalize=True, title="FID"):
-        vals = np.real(self.nmr_data) if use_real else np.imag(self.nmr_data)
-        if normalize:
-            vals = vals / vals[0]
+    def fid(self, add_spline=True, normalize=False, title="FID"):
+        vals_real = np.real(self.nmr_data)
+        vals_imag = np.imag(self.nmr_data)
 
-        if use_real:
-            t_list = [20 + 2 * i * 3.350 for i in range(len(vals))]
-        else:
-            t_list = [20 + (2 * i + 1) * 3.350 for i in range(len(vals))]
+        if normalize:
+            vals_real = vals_real / vals_real[0]
+            vals_imag = vals_imag / vals_real[0]
+
+        t_real = [20 + 2 * i * 3.350 for i in range(len(vals_real))]
+        t_imag = [20 + (2 * i + 1) * 3.350 for i in range(len(vals_imag))]
 
         if add_spline:
-            cs = CubicSpline(t_list, vals)
-            xs = np.arange(t_list[0], t_list[-1], 1)
-            plt.plot(xs, cs(xs), "g", label="Cubic Spline")
-        plt.scatter(t_list, vals, marker="o", label="data", s=1)
+            xs = np.arange(t_real[0], t_imag[-1], 1)
+
+            cs_real = CubicSpline(t_real, vals_real)
+            plt.plot(xs, cs_real(xs), color="b", label="Real Spline")
+
+            cs_imag = CubicSpline(t_imag, vals_imag)
+            plt.plot(xs, cs_imag(xs), color="r", label="Imaginary Spline")
+
+        plt.scatter(
+            t_real, vals_real, marker="o", label="Real Component", s=1, color="b"
+        )
+        plt.scatter(
+            t_imag, vals_imag, marker="o", label="Imaginary Component", s=1, color="r"
+        )
+
         plt.xlabel("Evolution time (us)")
-        plt.ylabel("(Absolute) Signal Intensity")
+        plt.ylabel("Signal Intensity")
         plt.title(title)
         plt.legend()
         plt.show()
 
-        return vals
+        return vals_real, vals_imag
 
     def tpc(
         self,
