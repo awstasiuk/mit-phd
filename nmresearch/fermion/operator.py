@@ -473,7 +473,6 @@ class Operator:
 
     @staticmethod
     def local_Z(index, n_spin):
-        Zi = Operator(n_spin)
         temp = np.zeros((2 * n_spin, 2 * n_spin))
         temp[index, index + n_spin] = 1
         temp[index + n_spin, index] = -1

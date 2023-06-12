@@ -197,6 +197,46 @@ class PulseProgram:
 
         return f"\n".join(str_list)
 
+    def mrev8(fc, n_max, xx=False):
+        mrev = [
+            [180, 0],
+            [90, 90],
+            [270, 270],
+            [0, 180],
+        ]
+
+        ph_prog_len = len(mrev)
+        ph_prog_depth = len(mrev[0])
+
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        mrev_shifted = [
+            [
+                (mrev[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(mrev_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
+
     def wahuha8(fc, n_max, xx=False):
         whh8 = [
             [0, 180],

@@ -3,6 +3,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import nmrglue as ng
 import numpy as np
 from scipy.interpolate import CubicSpline
+from scipy.fft import fft, fftfreq, fftshift
+from scipy.signal import find_peaks
 
 
 class Experiment:
@@ -99,10 +101,10 @@ class Experiment:
             plt.plot(xs, cs_imag(xs), color="r", label="Imaginary Spline")
 
         plt.scatter(
-            t_real, vals_real, marker="o", label="Real Component", s=1, color="b"
+            t_real, vals_real, marker="x", label="Real Component", s=15, color="b"
         )
         plt.scatter(
-            t_imag, vals_imag, marker="o", label="Imaginary Component", s=1, color="r"
+            t_imag, vals_imag, marker="x", label="Imaginary Component", s=15, color="r"
         )
 
         plt.xlabel("Evolution time (us)")
@@ -112,6 +114,52 @@ class Experiment:
         plt.show()
 
         return vals_real, vals_imag
+
+    def offset_cal(self, use_spline=False, pad_factor=2):
+        signal = np.pad(self.nmr_data, (0, (2**pad_factor - 1) * len(self.nmr_data)))
+
+        t_real = [2 * i * 3.350 for i in range(len(signal))]
+        t_imag = [(2 * i + 1) * 3.350 for i in range(len(signal))]
+
+        t0 = t_real[0]
+        tf = t_imag[-1]
+
+        if use_spline:
+            dt = 10**-2
+
+            xs = np.arange(t0, tf, dt)
+            cs_real = CubicSpline(t_real, np.real(signal))
+            cs_imag = CubicSpline(t_imag, np.imag(signal))
+
+            smooth_signal = cs_real(xs) + 1j * cs_imag(xs)
+
+            ft = fftshift(fft(smooth_signal, norm="ortho"))
+            N = len(ft)
+            freq = fftshift(fftfreq(N, dt))
+        else:
+            dt = 3.350
+            ft = fftshift(fft(signal, norm="ortho"))
+            N = len(ft)
+            freq = fftshift(fftfreq(N, dt))
+
+        plt.plot(freq * 10**6, abs(ft) / N, label="Fourier Intensity")
+        plt.xlabel("Frequency (Hz)")
+        plt.ylabel("Fourier Transform")
+        plt.title("Offset Calibration")
+        plt.xlim([-50000, 50000])
+
+        arr, _ = find_peaks(abs(ft) / N, height=max(abs(ft) / N) / 2)
+        idx = arr[(len(arr) // 2) - 1]
+        center = freq[idx] * 10**6
+
+        print("Offset Frequency is approximately " + str(center) + "Hz")
+        print("Use with caution, fine tuning may be necessary.")
+
+        plt.plot([center], [abs(ft[idx]) / N], marker="o", markersize=6)
+        plt.legend()
+        plt.show()
+
+        return freq[arr]
 
     def tpc(
         self,
@@ -145,6 +193,21 @@ class Experiment:
         plt.title(title)
         plt.legend()
         plt.show()
+
+        return vals
+
+    def load_tpc(self, use_real=True, dipolar=False, normalize=True):
+        if not dipolar:
+            vals = (
+                np.real(self.nmr_data[:, 0])
+                if use_real
+                else np.imag(self.nmr_data[:, 0])
+            )
+        else:
+            vals = np.imag(self.nmr_data[:, 1])
+
+        if normalize:
+            vals = vals / vals[0]
 
         return vals
 
