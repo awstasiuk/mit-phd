@@ -15,6 +15,13 @@ class Crystal:
         self._unit_cell = unit_cell
         self._lattice = lattice
 
+    def generate_crystal(self, shell_radius=1):
+        r"""
+        Generates a list of points for each `Atom` species in the lattice. `shell_radius`
+        describes the number of unit cells
+        """
+        return None
+
     @property
     def unit_cell(self):
         return self._unit_cell
