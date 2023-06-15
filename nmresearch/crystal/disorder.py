@@ -68,8 +68,7 @@ class Disorder:
         
     def variance_estimate(self, orig_atom, atomlis, shell_rad=1):
         crystal = self.cpl_xtal(orig_atom, atomlis, shell_rad)
-        s=2
-        return ((s**2-1)/12)*sum([spin.cpl()**2 for spin in crystal])
+        return sum([((spin.get_dim()**2-1)/12)*(spin.cpl()**2) for spin in crystal])
     
 d1 = .36853
 d2 = .39785
@@ -88,7 +87,7 @@ orig_atom = atom.AtomPos(dim_s=2, gamma = 251.662*10**6, pos= [0,0,0.25*6.887], 
 #orig_atom = atom.AtomPos(atom =fl, pos=[0,0,0.25])
 atomlis = ["phosphorous"]
 
-print(mycalc.variance_estimate(orig_atom, atomlis))
+print(mycalc.variance_estimate(orig_atom, atomlis, 30))
 print(mycalc.mean_field_calc(orig_atom, atomlis))
 
     

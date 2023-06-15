@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 
 class Atom:
@@ -24,10 +25,12 @@ class Atom:
         self._multi_species = False
 
         if abundance is not None:
-            self._abundance = abundance
+            norm1 = sum(abundance)
+            self.abundance=[]
+            for x in abundance:
+                self._abundance.append(x/norm1)
             self._multi_species = True
             # due to float precision this line could be an issue (maybe normalize the list??)
-            assert sum(abundance) == 1
 
         if self._multi_species:
             assert len(dim_s) == len(gamma) and len(gamma) == len(abundance)
@@ -46,7 +49,6 @@ class Atom:
     def get_gamma(self):
         return self._gamma
 
-    @property
     def multi_species(self):
         return self._multi_species
     
@@ -62,7 +64,18 @@ class AtomPos(Atom):
         if atom is None:
             super().__init__(dim_s, gamma, name, abundance = None)
         else:
-            super().__init__(atom.get_dim(), atom.get_gamma(), atom.name(), abundance = None)
+            if atom.multi_species():
+                u = random.uniform(0,1)
+                counter=0
+                index=-1
+                while u >= counter:
+                    index+=1
+                    counter+=abundance[index]
+                mys = atom.get_dim()[index]
+                mygamma = atom.get_gamma()[index]
+                super().__init__(mys, mygamma, atom.name(), abundance = None)
+            else:
+                super().__init__(atom.get_dim(), atom.get_gamma(), atom.name(), abundance = None)
         self._pos = pos
         self._cpl=cpl
 
