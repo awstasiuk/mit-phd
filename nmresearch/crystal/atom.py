@@ -26,14 +26,14 @@ class Atom:
 
         if abundance is not None:
             norm1 = sum(abundance)
-            self.abundance=[]
+            self._abundance=[]
             for x in abundance:
                 self._abundance.append(x/norm1)
             self._multi_species = True
             # due to float precision this line could be an issue (maybe normalize the list??)
 
         if self._multi_species:
-            assert len(dim_s) == len(gamma) and len(gamma) == len(abundance)
+            assert len(dim_s) == len(gamma) and len(gamma) == len(abundance) == len(name)
 
     @property
     def dim_s(self):
@@ -58,6 +58,9 @@ class Atom:
     @property
     def abundance(self):
         return self._abundance if self.multi_species else [1]
+    
+    def get_abundance(self):
+        return self._abundance
 
 class AtomPos(Atom):
     def __init__(self, pos, atom =None, dim_s=2, gamma=0, name="atom1", cpl=0):
@@ -70,10 +73,11 @@ class AtomPos(Atom):
                 index=-1
                 while u >= counter:
                     index+=1
-                    counter+=abundance[index]
+                    counter+=atom.get_abundance()[index]
                 mys = atom.get_dim()[index]
                 mygamma = atom.get_gamma()[index]
-                super().__init__(mys, mygamma, atom.name(), abundance = None)
+                myname = atom.name()[index]
+                super().__init__(mys, mygamma, myname, abundance = None)
             else:
                 super().__init__(atom.get_dim(), atom.get_gamma(), atom.name(), abundance = None)
         self._pos = pos
