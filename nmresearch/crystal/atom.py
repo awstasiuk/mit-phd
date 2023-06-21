@@ -8,9 +8,7 @@ class Atom:
 
     """
 
-    def __init__(
-        self, dim_s, gamma, name="atom1", abundance=None, pos=None, cpl=0
-    ):
+    def __init__(self, dim_s, gamma, name, abundance=None, pos=None, cpl=0):
         r"""
         Initialize the data structure. If there is more than one stable isotope with
         appreciable abundance, `dim_s` and `gamma` should be lists, and `abundance` should
@@ -27,15 +25,11 @@ class Atom:
 
         if abundance is not None:
             norm1 = sum(abundance)
-            self._abundance = []
-            for x in abundance:
-                self._abundance.append(x / norm1)
+            self._abundance = [x / norm1 for x in abundance]
             self._multi_species = True
 
         if self._multi_species:
-            assert len(dim_s) == len(gamma) and len(gamma) == len(
-                abundance
-            ) == len(name)
+            assert len(dim_s) == len(gamma) == len(abundance) == len(name)
 
     @property
     def dim_s(self):

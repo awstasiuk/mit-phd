@@ -12,39 +12,48 @@ class Crystal:
 
     """
 
-    def __init__(self, unit_cell, lattice):
+    def __init__(self, unit_cell, lattice_vecs):
         self._unit_cell = unit_cell
-        self._lattice = lattice
+        self._lattice_vecs = lattice_vecs
+        self._lattice = None
 
-    def generate_crystal(self, shell_radius=1):
+    def generate_lattice(self, shell_radius=1):
+        r"""
+        Generates a list of points for each `Atom` species in the lattice. `shell_radius`
+        is the number of layers of conventional unit cells surrounding the central unit cell,
+        so that the default `shell_radius` of 1 returns a lattice formed by a cube of
+        9 unit cells (the core and one layer).
+        """
         shell_arr = []
-        mylis = []
         for a in range(-shell_radius, shell_radius + 1):
             for b in range(-shell_radius, shell_radius + 1):
                 for c in range(-shell_radius, shell_radius + 1):
                     shell_arr.append(np.array([a, b, c]))
-        for atoms in self._unit_cell:
-            for pos in self._unit_cell[atoms]:
+
+        lattice = []
+        for atoms in self.unit_cell:
+            for pos in self.unit_cell[atoms]:
                 for x in shell_arr:
                     newpos = self.to_real_space(pos + x)
-                    mylis.append(atom.AtomPos(atom=atoms, pos=newpos))
-        return mylis
+                    lattice.append(atom.AtomPos(atom=atoms, pos=newpos))
 
-        r"""
-        Generates a list of points for each `Atom` species in the lattice. `shell_radius`
-        describes the number of unit cells
+        self._lattice = lattice
+        return lattice
+
+    def to_real_space(self, vec):
         """
-        return None
+        Matrix converter between reduced coordinate system and the real space coordinates
+        """
+        return np.matmul(self._lattice_vecs, vec)
+
+    @property
+    def lattice(self):
+        return self._lattice if self._lattice is not None else self.generate_lattice()
 
     @property
     def unit_cell(self):
         return self._unit_cell
-        # dictionary of Atom as key to atom positions (ndarray) in unit cell in cell basis
 
     @property
-    def lattice(self):
-        return self._lattice
-        # matrix converter between cell basis and real space
-
-    def to_real_space(self, vec):
-        return np.matmul(self._lattice, vec)
+    def lattice_vecs(self):
+        return self._lattice_vecs
