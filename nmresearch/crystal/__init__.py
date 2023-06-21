@@ -10,6 +10,6 @@ import nmresearch.crystal.atom
 import nmresearch.crystal.crystal
 import nmresearch.crystal.disorder
 
-from nmresearch.crystal.atom import Atom
+from nmresearch.crystal.atom import Atom, AtomPos
 from nmresearch.crystal.crystal import Crystal
-from nmresearch.crystal.disorder import *
+from nmresearch.crystal.disorder import Disorder

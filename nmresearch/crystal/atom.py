@@ -8,7 +8,9 @@ class Atom:
 
     """
 
-    def __init__(self, dim_s, gamma, name="atom1", abundance=None):
+    def __init__(
+        self, dim_s, gamma, name="atom1", abundance=None, pos=None, cpl=0
+    ):
         r"""
         Initialize the data structure. If there is more than one stable isotope with
         appreciable abundance, `dim_s` and `gamma` should be lists, and `abundance` should
@@ -18,83 +20,75 @@ class Atom:
         """
 
         self._dim_s = dim_s
-            #int(dim_s) if hasattr(dim_s, "__iter__") else [int(val) for val in dim_s]
-        
+
         self._gamma = gamma
         self._name = name
         self._multi_species = False
 
         if abundance is not None:
             norm1 = sum(abundance)
-            self._abundance=[]
+            self._abundance = []
             for x in abundance:
-                self._abundance.append(x/norm1)
+                self._abundance.append(x / norm1)
             self._multi_species = True
-            # due to float precision this line could be an issue (maybe normalize the list??)
 
         if self._multi_species:
-            assert len(dim_s) == len(gamma) and len(gamma) == len(abundance) == len(name)
+            assert len(dim_s) == len(gamma) and len(gamma) == len(
+                abundance
+            ) == len(name)
 
     @property
     def dim_s(self):
-        return self._dim_s
-    
-    def get_dim(self):
         return self._dim_s
 
     @property
     def gamma(self):
         return self._gamma
-    
-    def get_gamma(self):
-        return self._gamma
 
+    @property
     def multi_species(self):
         return self._multi_species
-    
+
+    @property
     def name(self):
         return self._name
 
     @property
     def abundance(self):
         return self._abundance if self.multi_species else [1]
-    
-    def get_abundance(self):
-        return self._abundance
+
 
 class AtomPos(Atom):
-    def __init__(self, pos, atom =None, dim_s=2, gamma=0, name="atom1", cpl=0):
+    def __init__(self, pos, atom=None, dim_s=2, gamma=0, name="atom1", cpl=0):
         if atom is None:
-            super().__init__(dim_s, gamma, name, abundance = None)
+            super().__init__(dim_s, gamma, name, abundance=None)
         else:
-            if atom.multi_species():
-                u = random.uniform(0,1)
-                counter=0
-                index=-1
+            if atom.multi_species:
+                u = random.uniform(0, 1)
+                counter = 0
+                index = -1
                 while u >= counter:
-                    index+=1
-                    counter+=atom.get_abundance()[index]
-                mys = atom.get_dim()[index]
-                mygamma = atom.get_gamma()[index]
-                myname = atom.name()[index]
-                super().__init__(mys, mygamma, myname, abundance = None)
+                    index += 1
+                    counter += atom.abundance[index]
+                mys = atom.dim_s[index]
+                mygamma = atom.gamma[index]
+                myname = atom.name[index]
+                super().__init__(mys, mygamma, myname, abundance=None)
             else:
-                super().__init__(atom.get_dim(), atom.get_gamma(), atom.name(), abundance = None)
+                super().__init__(
+                    atom.dim_s,
+                    atom.gamma,
+                    atom.name,
+                    abundance=None,
+                )
         self._pos = pos
-        self._cpl=cpl
+        self._cpl = cpl
 
-    
     def pos(self):
         return self._pos
-    
+
     def cpl(self):
         return self._cpl
-    
+
     def set_cpl(self, cpl):
-        self._cpl =cpl
-        
-        
-        
-    
-        
-    
+        self._cpl = cpl
