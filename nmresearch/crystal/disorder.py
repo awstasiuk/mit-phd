@@ -52,7 +52,7 @@ class Disorder:
         lattice = self._crystal.generate_lattice(self.shell_rad)
         network = []
         for atompos in lattice:
-            if not atompos.name == origin.name:
+            if atompos.name != origin.name:
                 atompos.set_cpl(
                     Disorder.heteronuclear_coupling(origin, atompos)
                 )

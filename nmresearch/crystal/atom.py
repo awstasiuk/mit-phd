@@ -1,5 +1,4 @@
-import numpy as np
-import random
+from random import uniform
 
 
 class Atom:
@@ -53,12 +52,12 @@ class Atom:
 
 
 class AtomPos(Atom):
-    def __init__(self, pos, atom=None, dim_s=2, gamma=0, name="atom1", cpl=0):
+    def __init__(self, dim_s, pos, gamma=0, name="atom1", cpl=0):
         if atom is None:
             super().__init__(dim_s, gamma, name, abundance=None)
         else:
             if atom.multi_species:
-                u = random.uniform(0, 1)
+                u = uniform(0, 1)
                 counter = 0
                 index = -1
                 while u >= counter:
@@ -86,3 +85,7 @@ class AtomPos(Atom):
 
     def set_cpl(self, cpl):
         self._cpl = cpl
+
+    @staticmethod
+    def create_from_atom(atom, position):
+        return AtomPos(atom.gamma)
