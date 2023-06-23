@@ -5,16 +5,15 @@ class Atom:
     r"""
     A data structure class for describing an atom.
 
+    If there is more than one stable isotope with
+    appreciable abundance, `dim_s`, `name`, and `gamma` should be given lists, and `abundance` should
+    be specified as a list of probabilities.
+
+    IMPORTANT: Specify `gamma` with units of rad/s/T
+
     """
 
     def __init__(self, dim_s, gamma, name, abundance=None):
-        r"""
-        Initialize the data structure. If there is more than one stable isotope with
-        appreciable abundance, `dim_s` and `gamma` should be lists, and `abundance` should
-        be specified as a list of probabilities.
-
-        IMPORTANT: Specify `gamma` with units of rad/s/T
-        """
 
         self._dim_s = dim_s
 
@@ -52,23 +51,33 @@ class Atom:
 
 
 class AtomPos(Atom):
-    def __init__(self, dim_s, position, gamma=0, name="atom1", couple=0):
+    r"""
+    Inherits properties from Atom class, plus has a set position and a user defined coupling strength.
+    No abundance probabilities, must be a fixed atom in space.
+    Can be generated using AtomPos call with all arguments, or with create_from_atom
+    which takes a pre-defined atom and a position
+    """
+
+    def __init__(self, dim_s, position, gamma=0, name="atom1", coupling=0):
         super().__init__(dim_s, gamma, name, abundance=None)
         self._position = position
-        self._couple = couple
+        self._coupling = coupling
 
     @property
     def position(self):
         return self._position
 
-    def couple(self):
-        return self._couple
+    @property
+    def coupling(self):
+        return self._coupling
 
-    def set_couple(self, couple):
-        self._couple = couple
+    @coupling.setter
+    def coupling(self, value):
+        self._coupling = value
 
     @staticmethod
     def create_from_atom(atom, position, couple=0):
+        # If atom has multiple species, chooses one randomly according to abundance probabilities
         if atom.multi_species:
             u = uniform(0, 1)
             counter = 0

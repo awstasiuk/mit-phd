@@ -1,5 +1,4 @@
-from sympy import inverse_fourier_transform, cos, exp, sqrt, pi
-from sympy.abc import x, k
+from sympy import cos, exp, pi
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -8,11 +7,9 @@ from timeit import default_timer as timer
 import sys
 
 sys.path.append("../nmresearch/crystal")
-import crystal
-import atom
-import disorder
-
-import pickle
+from crystal import Crystal
+from disorder import Disorder
+from atom import Atom, AtomPos
 
 x = 0.862604
 y = 0.406738
@@ -21,16 +18,16 @@ xh = 0.894624
 yh = 0.487048
 zh = 0.837948
 w = 0.866002
-ph = atom.Atom(dim_s=2, gamma=108.291 * 10**6, name="phosphorous")
-h = atom.Atom(dim_s=2, gamma=267.513 * 10**6, name="hydrogen")
-o = atom.Atom(dim_s=6, gamma=-36.274 * 10**6, name="oxygen")
-n = atom.Atom(
+ph = Atom(dim_s=2, gamma=108.291 * 10**6, name="phosphorous")
+h = Atom(dim_s=2, gamma=267.513 * 10**6, name="hydrogen")
+o = Atom(dim_s=6, gamma=-36.274 * 10**6, name="oxygen")
+n = Atom(
     dim_s=[2, 3],
     gamma=[19.332 * 10**6, -27.120 * 10**6],
     name=["nitrogen", "nitrogen-15"],
     abundance=[0.9964, 0.0036],
 )
-
+# Crystal structure data given by the materials project website of Berkeley Laboratories
 unit_cell = {
     ph: np.array(
         [
@@ -105,9 +102,9 @@ adp_lat = np.array(
         [0, 0, 7.04],
     ]
 )
-adp_xtal = crystal.Crystal(unit_cell, adp_lat)
-mycalc = disorder.Disorder(adp_xtal)
-orig_atom = atom.AtomPos.create_from_atom(
+adp_xtal = Crystal(unit_cell, adp_lat)
+mycalc = Disorder(adp_xtal)
+orig_atom = AtomPos.create_from_atom(
     atom=ph, position=mycalc.crystal.to_real_space([0, 0, 0.25 * 7.04])
 )
 

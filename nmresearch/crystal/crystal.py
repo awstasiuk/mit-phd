@@ -1,6 +1,5 @@
 import numpy as np
-import scipy as sp
-import atom
+from atom import AtomPos
 
 
 class Crystal:
@@ -15,7 +14,6 @@ class Crystal:
     def __init__(self, unit_cell, lattice_vecs):
         self._unit_cell = unit_cell
         self._lattice_vecs = lattice_vecs
-        self._lattice = self.generate_lattice()
 
     def generate_lattice(self, shell_radius=1):
         r"""
@@ -36,9 +34,7 @@ class Crystal:
                 for x in shell_arr:
                     newpos = self.to_real_space(pos + x)
                     lattice.append(
-                        atom.AtomPos.create_from_atom(
-                            atom=atoms, position=newpos
-                        )
+                        AtomPos.create_from_atom(atom=atoms, position=newpos)
                     )
 
         return lattice
@@ -48,10 +44,6 @@ class Crystal:
         Matrix converter between reduced coordinate system and the real space coordinates
         """
         return np.matmul(self._lattice_vecs, vec)
-
-    @property
-    def lattice(self):
-        return self._lattice
 
     @property
     def unit_cell(self):

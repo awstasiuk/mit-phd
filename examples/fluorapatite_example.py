@@ -1,5 +1,4 @@
-from sympy import inverse_fourier_transform, cos, exp, sqrt, pi
-from sympy.abc import x, k
+from sympy import cos, exp, pi
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -8,16 +7,14 @@ from timeit import default_timer as timer
 import sys
 
 sys.path.append("../nmresearch/crystal")
-import crystal
-import atom
-import disorder
-
-import pickle
+from crystal import Crystal
+from disorder import Disorder
+from atom import Atom, AtomPos
 
 d1 = 0.36853
 d2 = 0.39785
-fl = atom.Atom(dim_s=2, gamma=251.662 * 10**6, name="flourine")
-ph = atom.Atom(dim_s=2, gamma=108.291 * 10**6, name="phosphorous")
+fl = Atom(dim_s=2, gamma=251.662 * 10**6, name="flourine")
+ph = Atom(dim_s=2, gamma=108.291 * 10**6, name="phosphorous")
 
 unit_cell = {
     fl: np.array([[0, 0, 1 / 4], [0, 0, 3 / 4]]),
@@ -40,11 +37,9 @@ fp_lat = np.array(
         [0, 0, 6.887],
     ]
 )
-fp_xtal = crystal.Crystal(unit_cell, fp_lat)
-mycalc = disorder.Disorder(fp_xtal, 3)
-orig_atom = atom.AtomPos.create_from_atom(
-    atom=fl, position=[0, 0, 0.25 * 6.887]
-)
+fp_xtal = Crystal(unit_cell, fp_lat)
+mycalc = Disorder(fp_xtal, 3)
+orig_atom = AtomPos.create_from_atom(atom=fl, position=[0, 0, 0.25 * 6.887])
 
 v = mycalc.variance_estimate(orig_atom)
 

@@ -2,8 +2,7 @@ from crystal import Crystal
 from atom import Atom
 
 import numpy as np
-import matplotlib.pyplot as plt
-import pickle
+from pickle import load, dump
 
 
 class Disorder:
@@ -49,12 +48,12 @@ class Disorder:
         Generates the network of heteronuclear couplings for the origin atom and the
         surrounding crystal structure which was used to instantiate this instance.
         """
-        lattice = self._crystal.generate_lattice(self.shell_radius)
+        lattice = self.crystal.generate_lattice(self.shell_radius)
         network = []
         for atompos in lattice:
             if not atompos.name == origin.name:
-                atompos.set_couple(
-                    Disorder.heteronuclear_coupling(origin, atompos)
+                atompos.coupling = Disorder.heteronuclear_coupling(
+                    origin, atompos
                 )
             network.append(atompos)
 
@@ -86,7 +85,7 @@ class Disorder:
             crystal = self.get_network(origin)
         config = Disorder.get_rand_config(crystal)
         return sum(
-            [spin.couple() * orien for spin, orien in zip(crystal, config)]
+            [spin.coupling * orien for spin, orien in zip(crystal, config)]
         )
 
     def variance_estimate(self, origin):
@@ -98,7 +97,7 @@ class Disorder:
         crystal = self.get_network(origin)
         return sum(
             [
-                ((spin.dim_s**2 - 1) / 12) * (spin.couple() ** 2)
+                ((spin.dim_s**2 - 1) / 12) * (spin.coupling**2)
                 for spin in crystal
             ]
         )
@@ -115,7 +114,7 @@ class Disorder:
                     (3 * spin.dim_s**2 - 7) / 240
                     - (spin.dim_s**2 - 1) / 48
                 )
-                * (spin.couple() ** 4)
+                * (spin.coupling**4)
                 for spin in crystal
             ]
         )
@@ -131,14 +130,14 @@ class Disorder:
         or vary isotopes/atoms at lattice sites (slower)
         """
         try:
-            my_distro = pickle.load(open(filename, "rb"))
+            my_distro = load(open(filename, "rb"))
         except (OSError, IOError) as e:
             my_distro = np.zeros(trials)
             crystal = self.get_network(origin)
             for idx in range(trials):
                 my_distro[idx] = self.mean_field_calc(origin, regen)
             with open(filename, "wb") as fi:
-                pickle.dump(my_distro, fi)
+                dump(my_distro, fi)
         return my_distro
 
     @property
