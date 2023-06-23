@@ -1,5 +1,5 @@
 import numpy as np
-from atom import AtomPos
+from nmresearch.crystal.atom import AtomPos
 
 
 class Crystal:
