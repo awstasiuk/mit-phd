@@ -7,7 +7,7 @@ class Atom:
 
     """
 
-    def __init__(self, dim_s, gamma, name, abundance=None, pos=None, cpl=0):
+    def __init__(self, dim_s, gamma, name, abundance=None):
         r"""
         Initialize the data structure. If there is more than one stable isotope with
         appreciable abundance, `dim_s` and `gamma` should be lists, and `abundance` should
@@ -52,40 +52,36 @@ class Atom:
 
 
 class AtomPos(Atom):
-    def __init__(self, dim_s, pos, gamma=0, name="atom1", cpl=0):
-        if atom is None:
-            super().__init__(dim_s, gamma, name, abundance=None)
-        else:
-            if atom.multi_species:
-                u = uniform(0, 1)
-                counter = 0
-                index = -1
-                while u >= counter:
-                    index += 1
-                    counter += atom.abundance[index]
-                mys = atom.dim_s[index]
-                mygamma = atom.gamma[index]
-                myname = atom.name[index]
-                super().__init__(mys, mygamma, myname, abundance=None)
-            else:
-                super().__init__(
-                    atom.dim_s,
-                    atom.gamma,
-                    atom.name,
-                    abundance=None,
-                )
-        self._pos = pos
-        self._cpl = cpl
+    def __init__(self, dim_s, position, gamma=0, name="atom1", couple=0):
+        super().__init__(dim_s, gamma, name, abundance=None)
+        self._position = position
+        self._couple = couple
 
-    def pos(self):
-        return self._pos
+    @property
+    def position(self):
+        return self._position
 
-    def cpl(self):
-        return self._cpl
+    def couple(self):
+        return self._couple
 
-    def set_cpl(self, cpl):
-        self._cpl = cpl
+    def set_couple(self, couple):
+        self._couple = couple
 
     @staticmethod
-    def create_from_atom(atom, position):
-        return AtomPos(atom.gamma)
+    def create_from_atom(atom, position, couple=0):
+        if atom.multi_species:
+            u = uniform(0, 1)
+            counter = 0
+            index = -1
+            while u >= counter:
+                index += 1
+                counter += atom.abundance[index]
+            mys = atom.dim_s[index]
+            mygamma = atom.gamma[index]
+            myname = atom.name[index]
+        else:
+            mys = atom.dim_s
+            mygamma = atom.gamma
+            myname = atom.name
+
+        return AtomPos(mys, position, mygamma, myname, couple)

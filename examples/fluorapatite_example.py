@@ -42,7 +42,9 @@ fp_lat = np.array(
 )
 fp_xtal = crystal.Crystal(unit_cell, fp_lat)
 mycalc = disorder.Disorder(fp_xtal, 3)
-orig_atom = atom.AtomPos(atom=fl, pos=[0, 0, 0.25 * 6.887])
+orig_atom = atom.AtomPos.create_from_atom(
+    atom=fl, position=[0, 0, 0.25 * 6.887]
+)
 
 v = mycalc.variance_estimate(orig_atom)
 
@@ -56,7 +58,7 @@ k = mycalc.kurtosis_estimate(orig_atom)
 print(k)
 print(mycalc.mean_field_calc(orig_atom))
 start = timer()
-my_distro = mycalc.simulation(orig_atom, 5000, "new_distro.dat")
+my_distro = mycalc.simulation(orig_atom, 5000, "fp_example.dat")
 end = timer()
 print("computation time " + str(end - start))
 # xg = my_distro.reshape(-1,1)

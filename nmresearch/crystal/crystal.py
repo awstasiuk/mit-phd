@@ -12,12 +12,12 @@ class Crystal:
 
     """
 
-    def __init__(self, unit_cell, lattice_vecs, shell_radius=1):
+    def __init__(self, unit_cell, lattice_vecs):
         self._unit_cell = unit_cell
         self._lattice_vecs = lattice_vecs
-        self._lattice = self.generate_lattice(shell_radius)
+        self._lattice = self.generate_lattice()
 
-    def generate_lattice(self, shell_radius):
+    def generate_lattice(self, shell_radius=1):
         r"""
         Generates a list of points for each `Atom` species in the lattice. `shell_radius`
         is the number of layers of conventional unit cells surrounding the central unit cell,
@@ -35,8 +35,11 @@ class Crystal:
             for pos in self.unit_cell[atoms]:
                 for x in shell_arr:
                     newpos = self.to_real_space(pos + x)
-                    lattice.append(atom.AtomPos(atom=atoms, pos=newpos))
-
+                    lattice.append(
+                        atom.AtomPos.create_from_atom(
+                            atom=atoms, position=newpos
+                        )
+                    )
 
         return lattice
 

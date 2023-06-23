@@ -12,10 +12,10 @@ class Disorder:
     site.
     """
 
-    def __init__(self, crystal, shell_rad=1):
+    def __init__(self, crystal, shell_radius=1):
         self._crystal = crystal
         self._network = {}
-        self._shell_rad = shell_rad
+        self._shell_radius = shell_radius
 
     @staticmethod
     def heteronuclear_coupling(origin, source):
@@ -23,8 +23,8 @@ class Disorder:
         Compute the heteronuclear dipolar coupling strength for a pair of `Atom`s,
         `origin` and `source`.
         """
-        p1 = origin.pos()
-        p2 = source.pos()
+        p1 = origin.position
+        p2 = source.position
         hbar = 1.05457 * 10 ** (-34)  # J s / rad
         r = (p2 - p1) * 10 ** (-10)
         dx = np.linalg.norm(r)
@@ -49,11 +49,11 @@ class Disorder:
         Generates the network of heteronuclear couplings for the origin atom and the
         surrounding crystal structure which was used to instantiate this instance.
         """
-        lattice = self._crystal.generate_lattice(self.shell_rad)
+        lattice = self._crystal.generate_lattice(self.shell_radius)
         network = []
         for atompos in lattice:
-            if atompos.name != origin.name:
-                atompos.set_cpl(
+            if not atompos.name == origin.name:
+                atompos.set_couple(
                     Disorder.heteronuclear_coupling(origin, atompos)
                 )
             network.append(atompos)
@@ -62,7 +62,7 @@ class Disorder:
         return network
 
     @staticmethod
-    def get_rand_config(cpl_xtal):
+    def get_rand_config(network):
         """
         get a random configuration of n_spins
         each with spin-dimension s, so spin-1/2 is s=2,
@@ -70,14 +70,15 @@ class Disorder:
         """
         rng = np.random.default_rng()
         config = []
-        for atompos in cpl_xtal:
+        for atompos in network:
             s = atompos.dim_s
             config.append(rng.integers(low=0, high=s) - (s - 1) / 2)
         return config
 
     def mean_field_calc(self, origin, regen=False):
         """
-        describe me
+        Calculate disorder contribution to the local field at a specific atom
+        Randomized sum of discretized spin orientations times heteronuclear coupling strengths
         """
         if regen:
             crystal = self.generate_network(origin)
@@ -85,17 +86,7 @@ class Disorder:
             crystal = self.get_network(origin)
         config = Disorder.get_rand_config(crystal)
         return sum(
-            [spin.cpl() * orien for spin, orien in zip(crystal, config)]
-        )
-
-    @staticmethod
-    def mean_field_helper(crystal):
-        """
-        describe me
-        """
-        config = Disorder.get_rand_config(crystal)
-        return sum(
-            [spin.cpl() * orien for spin, orien in zip(crystal, config)]
+            [spin.couple() * orien for spin, orien in zip(crystal, config)]
         )
 
     def variance_estimate(self, origin):
@@ -107,7 +98,7 @@ class Disorder:
         crystal = self.get_network(origin)
         return sum(
             [
-                ((spin.dim_s**2 - 1) / 12) * (spin.cpl() ** 2)
+                ((spin.dim_s**2 - 1) / 12) * (spin.couple() ** 2)
                 for spin in crystal
             ]
         )
@@ -124,7 +115,7 @@ class Disorder:
                     (3 * spin.dim_s**2 - 7) / 240
                     - (spin.dim_s**2 - 1) / 48
                 )
-                * (spin.cpl() ** 4)
+                * (spin.couple() ** 4)
                 for spin in crystal
             ]
         )
@@ -155,5 +146,5 @@ class Disorder:
         return self._crystal
 
     @property
-    def shell_rad(self):
-        return self._shell_rad
+    def shell_radius(self):
+        return self._shell_radius
