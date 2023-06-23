@@ -7,9 +7,9 @@ from timeit import default_timer as timer
 import sys
 
 sys.path.append("../nmresearch/crystal")
-from crystal import Crystal
-from disorder import Disorder
-from atom import Atom, AtomPos
+from nmresearch import Crystal
+from nmresearch import Disorder
+from nmresearch import Atom, AtomPos
 
 d1 = 0.36853
 d2 = 0.39785

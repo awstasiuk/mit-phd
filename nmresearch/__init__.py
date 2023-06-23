@@ -25,5 +25,6 @@ from nmresearch.fermion.math import Math
 from nmresearch.fermion.unitary import Unitary
 from nmresearch.interface.experiment import Experiment
 from nmresearch.interface.pp_gen import PulseProgram
-from nmresearch.crystal.atom import Atom
+from nmresearch.crystal.atom import Atom, AtomPos
 from nmresearch.crystal.crystal import Crystal
+from nmresearch.crystal.disorder import Disorder

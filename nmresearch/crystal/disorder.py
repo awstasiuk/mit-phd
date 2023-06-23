@@ -1,6 +1,3 @@
-from nmresearch.crystal.crystal import Crystal
-from nmresearch.crystal.atom import Atom
-
 import numpy as np
 from pickle import load, dump
 
