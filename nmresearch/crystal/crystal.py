@@ -1,0 +1,54 @@
+import numpy as np
+from nmresearch.crystal.atom import AtomPos
+
+
+class Crystal:
+    r"""
+    This class describes a crystal structure. A crystal has two important properties,
+    the `unit_cell` and the `lattice` vectors. We want to take a convential unit cell,
+    which will contain more than one atom. Each atom in the unit cell should have the data
+    which describes it, and we use the `Atom` class as its data structure.
+
+    """
+
+    def __init__(self, unit_cell, lattice_vecs):
+        self._unit_cell = unit_cell
+        self._lattice_vecs = lattice_vecs
+
+    def generate_lattice(self, shell_radius=1):
+        r"""
+        Generates a list of points for each `Atom` species in the lattice. `shell_radius`
+        is the number of layers of conventional unit cells surrounding the central unit cell,
+        so that the default `shell_radius` of 1 returns a lattice formed by a cube of
+        9 unit cells (the core and one layer).
+        """
+        shell_arr = []
+        for a in range(-shell_radius, shell_radius + 1):
+            for b in range(-shell_radius, shell_radius + 1):
+                for c in range(-shell_radius, shell_radius + 1):
+                    shell_arr.append(np.array([a, b, c]))
+
+        lattice = []
+        for atoms in self.unit_cell:
+            for pos in self.unit_cell[atoms]:
+                for x in shell_arr:
+                    newpos = self.to_real_space(pos + x)
+                    lattice.append(
+                        AtomPos.create_from_atom(atom=atoms, position=newpos)
+                    )
+
+        return lattice
+
+    def to_real_space(self, vec):
+        """
+        Matrix converter between reduced coordinate system and the real space coordinates
+        """
+        return np.matmul(self._lattice_vecs, vec)
+
+    @property
+    def unit_cell(self):
+        return self._unit_cell
+
+    @property
+    def lattice_vecs(self):
+        return self._lattice_vecs
