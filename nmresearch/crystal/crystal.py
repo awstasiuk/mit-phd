@@ -1,14 +1,14 @@
-import numpy as np
 from nmresearch.crystal.atom import AtomPos
+
+from numpy import array, matmul
 
 
 class Crystal:
     r"""
     This class describes a crystal structure. A crystal has two important properties,
-    the `unit_cell` and the `lattice` vectors. We want to take a convential unit cell,
-    which will contain more than one atom. Each atom in the unit cell should have the data
-    which describes it, and we use the `Atom` class as its data structure.
-
+    the `unit_cell` (conventional unit cell) and the `lattice_vecs` (lattice vectors). 
+    We want to take a convential unit cell, which will generally contain more than one atom. 
+    Each `Atom` in the unit cell contains positional data, and instrinsic coupling strength data.
     """
 
     def __init__(self, unit_cell, lattice_vecs):
@@ -26,7 +26,7 @@ class Crystal:
         for a in range(-shell_radius, shell_radius + 1):
             for b in range(-shell_radius, shell_radius + 1):
                 for c in range(-shell_radius, shell_radius + 1):
-                    shell_arr.append(np.array([a, b, c]))
+                    shell_arr.append(array([a, b, c]))
 
         lattice = []
         for atoms in self.unit_cell:
@@ -43,7 +43,7 @@ class Crystal:
         """
         Matrix converter between reduced coordinate system and the real space coordinates
         """
-        return np.matmul(self._lattice_vecs, vec)
+        return matmul(self._lattice_vecs, vec)
 
     @property
     def unit_cell(self):

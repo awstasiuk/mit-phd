@@ -76,8 +76,13 @@ class AtomPos(Atom):
         self._coupling = value
 
     @staticmethod
-    def create_from_atom(atom, position, couple=0):
-        # If atom has multiple species, chooses one randomly according to abundance probabilities
+    def create_from_atom(atom, position, coupling=0):
+        """
+        Intended instantiation method for a positional atom. This function accepts an `Atom`
+        and a position, and uses this information to create a positional atom. If atom has multiple
+        species, we choose one randomly according to abundance probabilities defined in the `atom`
+        argument.
+        """
         if atom.multi_species:
             u = uniform(0, 1)
             counter = 0
@@ -93,4 +98,4 @@ class AtomPos(Atom):
             mygamma = atom.gamma
             myname = atom.name
 
-        return AtomPos(mys, position, mygamma, myname, couple)
+        return AtomPos(mys, position, mygamma, myname, coupling)
