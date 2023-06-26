@@ -3,14 +3,17 @@ from random import uniform
 
 class Atom:
     r"""
-    A data structure class for describing an atom.
+    A data structure class for describing an atom. It contains relevant species level
+    information for an atomic nuclear spin. This class contains the spin dimension of
+    the nuclear spin, `dim_s`, a descriptive name of the spin, `name`, and the
+    gyromagnetic ration of the spin, `gamma` given in units of rad/s/T. 
 
-    If there is more than one stable isotope with
-    appreciable abundance, `dim_s`, `name`, and `gamma` should be given lists, and `abundance` should
-    be specified as a list of probabilities.
+    If there is more than one stable isotope with ppreciable abundance, `dim_s`, `name`,
+    and `gamma` should be given lists, and `abundance` must be specified as a list of probabilities
+    for the presence of each stable isotope.
 
-    IMPORTANT: Specify `gamma` with units of rad/s/T
-
+    IMPORTANT: Failure to specify `gamma` with units of rad/s/T will result in incorrect numerical
+    values
     """
 
     def __init__(self, dim_s, gamma, name, abundance=None):

@@ -8,8 +8,8 @@ from pickle import load, dump
 
 class Disorder:
     """
-    This class should accept a :type:`Crystal`, and be able to compute the mean field at a given
-    site.
+    This accepts an instance of a :type:`Crystal`, and is able compute statistical
+    quantities relevant to the `crystal`, using Monte Carlo techniques or otherwise.
     """
 
     def __init__(self, crystal, shell_radius=1):
