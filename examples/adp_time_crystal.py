@@ -1,4 +1,3 @@
-from sympy import cos, exp, pi
 import numpy as np
 
 import matplotlib.pyplot as plt

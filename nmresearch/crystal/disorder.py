@@ -1,11 +1,15 @@
-import numpy as np
+from nmresearch.crystal.disorder import Disorder
+
+from numpy import zeros
+from numpy.linalg import norm
+from numpy.random import default_rng
 from pickle import load, dump
 
 
 class Disorder:
     """
-    This class should accept a :type:`Crystal`, and be able to compute the mean field at a given
-    site.
+    This accepts an instance of a :type:`Crystal`, and is able compute statistical
+    quantities relevant to the `crystal`, using Monte Carlo techniques or otherwise.
     """
 
     def __init__(self, crystal, shell_radius=1):
@@ -23,7 +27,7 @@ class Disorder:
         p2 = source.position
         hbar = 1.05457 * 10 ** (-34)  # J s / rad
         r = (p2 - p1) * 10 ** (-10)
-        dx = np.linalg.norm(r)
+        dx = norm(r)
         rhat = r / dx
         cos = rhat[2]
         return (
@@ -64,7 +68,7 @@ class Disorder:
         each with spin-dimension s, so spin-1/2 is s=2,
         spin-2 is s=5, etc (j=(s-1)/2)
         """
-        rng = np.random.default_rng()
+        rng = default_rng()
         config = []
         for atompos in network:
             s = atompos.dim_s
@@ -129,7 +133,7 @@ class Disorder:
         try:
             my_distro = load(open(filename, "rb"))
         except (OSError, IOError) as e:
-            my_distro = np.zeros(trials)
+            my_distro = zeros(trials)
             crystal = self.get_network(origin)
             for idx in range(trials):
                 my_distro[idx] = self.mean_field_calc(origin, regen)
