@@ -1,4 +1,4 @@
-from nmresearch.crystal.disorder import Disorder
+from nmresearch.crystal.crystal import Crystal
 
 from numpy import zeros
 from numpy.linalg import norm
@@ -15,6 +15,7 @@ class Disorder:
     def __init__(self, crystal, shell_radius=1):
         self._crystal = crystal
         self._network = {}
+        self._double_network = {}
         self._shell_radius = shell_radius
 
     @staticmethod
@@ -61,6 +62,32 @@ class Disorder:
         self._network[origin] = network
         return network
 
+    def double_get_network(self, origin_1, origin_2, plus=False):
+        if (origin_1, origin_2, plus) in self._network.keys():
+            return self._double_network[(origin_1, origin_2, plus)]
+        return self.double_generate_network(origin_1, origin_2, plus)
+
+    def double_generate_network(self, origin_1, origin_2, plus=False):
+        r"""
+        Note that origin_1, origin_2 need to be the same atom for this to work.
+        """
+        assert origin_1.name == origin_2.name
+        if plus == True:
+            a = 1
+        else:
+            a = -1
+        lattice = self.crystal.generate_lattice(self.shell_radius)
+        network = []
+        for atompos in lattice:
+            if not atompos.name == origin_1.name:
+                atompos.coupling = Disorder.heteronuclear_coupling(
+                    origin_1, atompos
+                ) + a * Disorder.heteronuclear_coupling(origin_2, atompos)
+            network.append(atompos)
+
+        self._double_network[(origin_1, origin_2, plus)] = network
+        return network
+
     @staticmethod
     def get_rand_config(network):
         """
@@ -89,6 +116,25 @@ class Disorder:
             [spin.coupling * orien for spin, orien in zip(crystal, config)]
         )
 
+    def double_mean_field_calc(
+        self, origin_1, origin_2, plus=False, regen=False
+    ):
+
+        if regen:
+            double_crystal = self.double_generate_network(
+                origin_1, origin_2, plus
+            )
+        else:
+            double_crystal = self.double_get_network(origin_1, origin_2, plus)
+
+        config = Disorder.get_rand_config(double_crystal)
+        return sum(
+            [
+                spin.coupling * orien
+                for spin, orien in zip(double_crystal, config)
+            ]
+        )
+
     def variance_estimate(self, origin):
         """
         Gives variance of mean field calculated at origin according to uniformly distributed nuclear spins over spin dimension
@@ -96,6 +142,20 @@ class Disorder:
         (which is generated randomly from probabilities of each isotope at lattice site)
         """
         crystal = self.get_network(origin)
+        return sum(
+            [
+                ((spin.dim_s**2 - 1) / 12) * (spin.coupling**2)
+                for spin in crystal
+            ]
+        )
+
+    def double_variance_estimate(self, origin_1, origin_2, plus=False):
+        """
+        Gives variance of mean field calculated at origin according to uniformly distributed nuclear spins over spin dimension
+        Computes variance only for one fixed isotope position
+        (which is generated randomly from probabilities of each isotope at lattice site)
+        """
+        crystal = self.double_generate_network(origin_1, origin_2, plus)
         return sum(
             [
                 ((spin.dim_s**2 - 1) / 12) * (spin.coupling**2)
@@ -140,6 +200,42 @@ class Disorder:
             with open(filename, "wb") as fi:
                 dump(my_distro, fi)
         return my_distro
+
+    def double_simulation(
+        self,
+        origin_1,
+        origin_2,
+        trials,
+        filename=(
+            "double_disorder_sim_plus.dat",
+            "double_disorder_sim_minus.dat",
+        ),
+        regen=False,
+    ):
+        """
+        Monte-carlo simulation of mean field at orig_atom
+        given contributing atoms in atomlis according to ij coupling
+        Regen boolean says whether all trials have one fixing of isotopes (faster)
+        or vary isotopes/atoms at lattice sites (slower)
+        """
+        try:
+            my_distro_plus = load(open(filename[0], "rb"))
+            my_distro_minus = load(open(filename[1], "rb"))
+        except (OSError, IOError) as e:
+            my_distro_plus = zeros(trials)
+            my_distro_minus = zeros(trials)
+            for idx in range(trials):
+                my_distro_plus[idx] = self.double_mean_field_calc(
+                    origin_1, origin_2, True, regen
+                )
+                my_distro_minus[idx] = self.double_mean_field_calc(
+                    origin_1, origin_2, False, regen
+                )
+            with open(filename[0], "wb") as fi:
+                dump(my_distro_plus, fi)
+            with open(filename[1], "wb") as fil:
+                dump(my_distro_minus, fil)
+        return (my_distro_plus, my_distro_minus)
 
     @property
     def crystal(self):
