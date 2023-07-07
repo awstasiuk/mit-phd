@@ -1,5 +1,3 @@
-from nmresearch.crystal.disorder import Disorder
-
 from numpy import zeros
 from numpy.linalg import norm
 from numpy.random import default_rng
