@@ -77,9 +77,13 @@ def gauss_v(x, va):
 
 x = np.linspace(-20000, 20000, 1000)
 print("=====\n Now the two-atom experiment \n===== ")
-v2 = mycalc.double_variance_estimate(orig_atom, second_atom, False)
+v2 = mycalc.double_variance_estimate(
+    orig_atom, second_atom, False
+)  # Calculate variance of difference of disordered fields at two atoms
 print("Minus variance Mrad/s: " + str(v2 * 1e-6))
-v1 = mycalc.double_variance_estimate(orig_atom, second_atom, True)
+v1 = mycalc.double_variance_estimate(
+    orig_atom, second_atom, True
+)  # Calculate variance of sum of difference of disordered fields at two atoms
 print("Plus variance Mrad/s: " + str(v1 * 1e-6))
 
 double_distro_plus, double_distro_minus = mycalc.double_simulation(
