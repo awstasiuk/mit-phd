@@ -3,9 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from timeit import default_timer as timer
-import sys
 
-sys.path.append("../nmresearch/crystal")
 from nmresearch import Crystal
 from nmresearch import Disorder
 from nmresearch import Atom, AtomPos
