@@ -336,6 +336,66 @@ class PulseProgram:
             str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
 
         return f"\n".join(str_list)
+    
+    @staticmethod
+    def angle12(fc, n_max=50, theta=0, xx=False):
+        r"""
+        Generates 12 phase programs needed to run Angle12 suspension sequence using a variable
+        framechage angle and a compiled Ry(theta) pulse at the end of each sequence.
+        """
+        ang12 = [
+            [270],
+            [0],
+            [180],
+            [90],
+            [180],
+            [180],
+            [90],
+            [180],
+            [0],
+            [270],
+            [0],
+            [0],
+        ]
+
+        ph_prog_len = len(ang12)
+        ph_prog_depth = len(ang12[0])
+
+        shifts = [
+            [
+                fc * (ph_prog_len * i + k) - int(i / ph_prog_depth) * theta
+                for i in range(n_max * ph_prog_depth)
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        for k in range(n_max - 1):
+            shifts[ph_prog_len - 1][ph_prog_depth * (k + 1) - 1] -= theta
+
+        ang12_shifted = [
+            [
+                (ang12[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(ang12_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
 
     @staticmethod
     def wahuha_helper(init_phase, fc, whh_cycles=18):
@@ -710,4 +770,77 @@ class PulseProgram:
         str_list = []
         str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
         str_list.append("ph1 = (360) " + " ".join(to_str(ph1)))
+        return f"\n".join(str_list)
+
+
+    @staticmethod
+    def localz_internal(fc):
+        r"""
+        Generates the phase programs needed to measure disordered Zeeman states evolving
+        under the internal Hamiltonian with arbitrary Rx(theta) kicking. See the pp
+        dtc_internal_165_disZ_fc10 as an example.
+        """
+        glb_ph = 0
+
+        # first pulse
+        ph0 = [270, 270, 90, 90]
+        glb_ph += fc
+
+        # first wahuha sequence (ph1,ph2,ph3,ph4)
+        whh1, whh_ph1 = PulseProgram.wahuha_helper(glb_ph, fc)
+        glb_ph += whh_ph1
+
+        # recovery x pulse
+        ph5 = [glb_ph % 360 for _ in range(4)]
+        ph5.extend([(180 + glb_ph) % 360 for _ in range(4)])
+        glb_ph += fc
+
+        # periodic kicking loop... this one is special
+        #ph6 = [((glb_ph + 270 + k * (2 * fc - theta)) % 360) for k in range(n_max)]
+        #ph7 = [
+        #    ((glb_ph + 90 - (k + 1) * theta + (2 * k + 1) * fc) % 360)
+        #    for k in range(n_max)
+        #]
+
+        # inv recovery x pulse
+        ph8 = [glb_ph % 360 for _ in range(8)]
+        ph8.extend([(180 + glb_ph) % 360 for _ in range(8)])
+        glb_ph += fc
+
+        # second wahuha sequence (ph9,ph10,ph11,ph12)
+        whh2, whh_ph2 = PulseProgram.wahuha_helper(glb_ph, fc)
+        glb_ph += whh_ph2
+
+        # shelving pulse
+        ph13 = [(ang + glb_ph) % 360 for ang in [270, 270, 90, 90]]
+        glb_ph += fc
+
+        str_list = []
+        #for i in range(8, 14, 1):
+        #    str_list.append("20m ip" + str(i) + "*" + str((2 * fc - theta) % 360))
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(whh1[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(whh1[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(whh1[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(whh1[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        #str_list.append("ph6 = (360) " + " ".join(to_str(ph6)))
+        #str_list.append("ph7 = (360) " + " ".join(to_str(ph7)))
+        #str_list.append("")
+        str_list.append("ph8 = (360) " + " ".join(to_str(ph8)))
+        str_list.append("")
+        str_list.append("ph9 = (360) " + " ".join(to_str(whh2[0])))
+        str_list.append("ph10 = (360) " + " ".join(to_str(whh2[1])))
+        str_list.append("ph11 = (360) " + " ".join(to_str(whh2[2])))
+        str_list.append("ph12 = (360) " + " ".join(to_str(whh2[3])))
+        str_list.append("")
+        str_list.append("ph13 = (360) " + " ".join(to_str(ph13)))
+        str_list.append("")
+        str_list.append("ph14 = 0 2 0 2")
+        str_list.append("ph31 = 1 3 1 3 3 1 3 1 3 1 3 1 1 3 1 3")
+
         return f"\n".join(str_list)
