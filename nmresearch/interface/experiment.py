@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import nmrglue as ng
 import numpy as np
+
+from mpl_toolkits.mplot3d import Axes3D
+from numpy import imag, real, concatenate, array, arange, argmax
 from scipy.interpolate import CubicSpline
 from scipy.fft import fft, fftfreq, fftshift
 from scipy.signal import find_peaks
@@ -32,7 +34,7 @@ class Experiment:
     def calibrate90(self):
         if len(self.td) != 3:
             raise ValueError("Invalid Experiment shape for pulse calibration")
-        vals = np.imag(self.nmr_data[:, :, 0])
+        vals = imag(self.nmr_data[:, :, 0])
         plt.plot(vals[0], label="1 wrap")
         plt.plot(vals[1], label="2 wraps")
         plt.plot(vals[2], label="3 wraps")
@@ -47,29 +49,39 @@ class Experiment:
         plt.xlabel("Power List Index")
         plt.show()
 
-        print("array index of max signal is " + str(np.argmax(high_contrast)))
+        print("array index of max signal is " + str(argmax(high_contrast)))
 
-    def calibrate_framechange(self, phase_inc=2):
-        signal = np.real(self.nmr_data[:, :, 0])
+    def calibrate_framechange(self, phase_inc=2, include_3d=False):
+        signal = real(self.nmr_data[:, :, 0])
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection="3d")
-        x, y = np.meshgrid(
-            range(0, phase_inc * (signal.shape[0]), phase_inc),
-            range(signal.shape[1]),
-        )
-        c = ax.plot_wireframe(x, y, signal.transpose())
-        ax.set_title("Out of Phase Over-rotation Error")
-        # set the limits of the plot to the limits of the data
-        ax.set_xlabel("Frame Change Offset")
-        ax.set_ylabel("Variable Delay List Element")
-        plt.show()
+        errs = concatenate((real(self.nmr_data[:,:,-11:-1]), imag(self.nmr_data[:,:,-11:-1])),2)
+        std_errs = np.std(errs,2)
 
+        if include_3d:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection="3d")
+            x, y = np.meshgrid(
+                range(0, phase_inc * (signal.shape[0]), phase_inc),
+                range(signal.shape[1]),
+            )
+            c = ax.plot_wireframe(x, y, signal.transpose())
+            ax.set_title("Out of Phase Over-rotation Error")
+            # set the limits of the plot to the limits of the data
+            ax.set_xlabel("Frame Change Offset")
+            ax.set_ylabel("Variable Delay List Element")
+            plt.show()
+        
+        
         norms = [sum(abs(signal[k, :])) for k in range(self.td[0])]
-        phases = np.array(range(0, phase_inc * (signal.shape[0]), phase_inc))
-        plt.scatter(phases, norms)
+        phases = array(range(0, phase_inc * (signal.shape[0]), phase_inc))
+
+        var = std_errs ** 2
+        var_sum = array([sum(var[k,:]) for k in range(self.td[0])])
+        scaled_err = var_sum**.5
+
+        plt.errorbar(phases, norms, scaled_err, marker="o", linestyle="")
         cs = CubicSpline(phases, norms)
-        xs = np.arange(phases[0], phases[-1], phase_inc / 50)
+        xs = arange(phases[0], phases[-1], phase_inc / 50)
         plt.plot(xs, cs(xs), "g", label="Cubic Spline")
 
         plt.xlabel("Frame Change Offset")
@@ -79,10 +91,10 @@ class Experiment:
 
         overrot_angle = phase_inc * (np.argmin(norms))
         print("Over-rotation angle is given by " + str(overrot_angle) + " deg.")
-
+        
     def fid(self, add_spline=True, normalize=False, title="FID"):
-        vals_real = np.real(self.nmr_data)
-        vals_imag = np.imag(self.nmr_data)
+        vals_real = real(self.nmr_data)
+        vals_imag = imag(self.nmr_data)
 
         if normalize:
             vals_real = vals_real / vals_real[0]
@@ -92,7 +104,7 @@ class Experiment:
         t_imag = [20 + (2 * i + 1) * 3.350 for i in range(len(vals_imag))]
 
         if add_spline:
-            xs = np.arange(t_real[0], t_imag[-1], 1)
+            xs = arange(t_real[0], t_imag[-1], 1)
 
             cs_real = CubicSpline(t_real, vals_real)
             plt.plot(xs, cs_real(xs), color="b", label="Real Spline")
@@ -116,6 +128,10 @@ class Experiment:
         return vals_real, vals_imag
 
     def offset_cal(self, use_spline=False, pad_factor=2):
+        r"""
+        Attempt to calibrate the offset frequency. This does not work well,
+        and it seems that Nyquist is to blame
+        """
         signal = np.pad(self.nmr_data, (0, (2**pad_factor - 1) * len(self.nmr_data)))
 
         t_real = [2 * i * 3.350 for i in range(len(signal))]
@@ -127,9 +143,9 @@ class Experiment:
         if use_spline:
             dt = 10**-2
 
-            xs = np.arange(t0, tf, dt)
-            cs_real = CubicSpline(t_real, np.real(signal))
-            cs_imag = CubicSpline(t_imag, np.imag(signal))
+            xs = arange(t0, tf, dt)
+            cs_real = CubicSpline(t_real, real(signal))
+            cs_imag = CubicSpline(t_imag, imag(signal))
 
             smooth_signal = cs_real(xs) + 1j * cs_imag(xs)
 
@@ -168,68 +184,89 @@ class Experiment:
         dipolar=False,
         add_spline=True,
         normalize=True,
+        error=False,
         cycle=120,
     ):
         t_list = list(range(0, self.td[0] * cycle, cycle))
         if not dipolar:
             vals = (
-                np.real(self.nmr_data[:, 0])
+                real(self.nmr_data[:, 0])
                 if use_real
-                else np.imag(self.nmr_data[:, 0])
+                else imag(self.nmr_data[:, 0])
             )
         else:
             vals = np.imag(self.nmr_data[:, 1])
 
+        errs = concatenate((real(self.nmr_data[:,-11:-1]), imag(self.nmr_data[:,-11:-1])),1)
+        std_errs = np.std(errs,1)
+
         if normalize:
+            std_errs = std_errs / vals[0]
             vals = vals / vals[0]
 
         if add_spline:
             cs = CubicSpline(t_list, vals)
-            xs = np.arange(t_list[0], t_list[-1], cycle / 100)
+            xs = arange(t_list[0], t_list[-1], cycle / 100)
             plt.plot(xs, cs(xs), "g", label="Cubic Spline")
-        plt.scatter(t_list, vals, marker="o", label="data")
+
+        plt.errorbar(t_list, vals, std_errs, marker="o", label="data",linestyle='')
         plt.xlabel("Evolution time (us)")
         plt.ylabel("(Absolute) Signal Intensity")
         plt.title(title)
         plt.legend()
         plt.show()
 
+        if error:
+            return vals,std_errs
         return vals
 
-    def load_tpc(self, use_real=True, dipolar=False, normalize=True):
+    def load_tpc(self, use_real=True, dipolar=False, normalize=True, error=False):
         if not dipolar:
             vals = (
-                np.real(self.nmr_data[:, 0])
+                real(self.nmr_data[:, 0])
                 if use_real
-                else np.imag(self.nmr_data[:, 0])
+                else imag(self.nmr_data[:, 0])
             )
         else:
-            vals = np.imag(self.nmr_data[:, 1])
+            vals = imag(self.nmr_data[:, 1])
+
+        errs = concatenate((real(self.nmr_data[:,-11:-1]), imag(self.nmr_data[:,-11:-1])),1)
+        std_errs = np.std(errs,1)
 
         if normalize:
+            std_errs = std_errs / vals[0]
             vals = vals / vals[0]
-
+        
+        if error:
+            return vals,std_errs
         return vals
 
-    def load_tpc3d(self, use_real=True, dipolar=False, normalize=True):
+    def load_tpc3d(self, use_real=True, dipolar=False, normalize=True, errors=False):
         if not dipolar:
             vals = (
-                np.real(self.nmr_data[:, :, 0])
+                real(self.nmr_data[:, :, 0])
                 if use_real
-                else np.imag(self.nmr_data[:, :, 0])
+                else imag(self.nmr_data[:, :, 0])
             )
         else:
-            vals = np.imag(self.nmr_data[:, :, 1])
+            vals = imag(self.nmr_data[:, :, 1])
+
+        errs = concatenate((real(self.nmr_data[:,:,-11:-1]), imag(self.nmr_data[:,:,-11:-1])),2)
+        std_errs = np.std(errs,2)
 
         # normalize signal
         if normalize:
             for idx, expt in enumerate(vals):
-                vals[idx] = expt / max(expt)
+                std_errs[idx] = std_errs[idx] / expt[0]
+                vals[idx] = expt / expt[0]
+        
+        if errors:
+            return vals, std_errs
         return vals
 
     def mqc(self, enc_td2=True):
         cycle = 24 * 5.0
-        Smt = np.real(self.nmr_data[:, :, 0])
+        Smt = real(self.nmr_data[:, :, 0])
 
         if enc_td2:
             td1 = self.td[0]
@@ -314,7 +351,7 @@ class Experiment:
 
         vals = [np.abs(val / norm) for val, norm in zip(otoc, normalizer)]
         cs = CubicSpline(t_list, vals)
-        xs = np.arange(t_list[0], t_list[-1], 1)
+        xs = arange(t_list[0], t_list[-1], 1)
         plt.scatter(
             t_list,
             vals,
