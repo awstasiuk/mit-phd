@@ -37,7 +37,8 @@ class Disorder:
         rhat = r / dx
         cos = rhat[2]
         return (
-            (10**-7)
+            0.5
+            * (10**-7)
             * hbar
             * origin.gamma
             * source.gamma
