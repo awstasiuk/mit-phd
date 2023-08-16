@@ -77,7 +77,7 @@ double_distro_minus = mycalc.homonuclear_double_simulation(
     second_atom,
     trials=2000,
     bdir=[0, 0, 1],
-    filename="new_bijdistro.dat",
+    filename="bijdistro.dat",
     regen=True,
 )
 v1 = mycalc.homonuclear_double_variance_estimate(
@@ -92,10 +92,10 @@ plt.xlabel("rad/s")
 plt.show()
 
 hbar = 1.05457 * 10 ** (-34)
-average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[0, 0, 1], a=a)
-print("Remainder for 7 terms 001: " + str(average_remainder))
-average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[1, 1, 1], a=a)
-print("Remainder for 7 terms 111: " + str(average_remainder))
+# average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[0, 0, 1], a=a)
+# print("Remainder for 7 terms 001: " + str(average_remainder))
+# average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[1, 1, 1], a=a)
+# print("Remainder for 7 terms 111: " + str(average_remainder))
 
 d001 = mycalc.spin_diffusion_coeff(orig_atom, bdir=[0, 0, 1], a=a)
 d001_2 = mycalc.spin_diffusion_second_order(orig_atom, bdir=[0, 0, 1], a=a)
