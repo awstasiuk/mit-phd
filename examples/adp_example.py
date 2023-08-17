@@ -1,11 +1,8 @@
 import numpy as np
-
 import matplotlib.pyplot as plt
-
 from timeit import default_timer as timer
-import sys
+from sklearn.mixture import GaussianMixture
 
-sys.path.append("../nmresearch/crystal")
 from nmresearch import Crystal
 from nmresearch import Disorder
 from nmresearch import Atom, AtomPos
@@ -19,7 +16,7 @@ zh = 0.837948
 w = 0.866002
 ph = Atom(dim_s=2, gamma=108.291 * 10**6, name="phosphorous")
 h = Atom(dim_s=2, gamma=267.513 * 10**6, name="hydrogen")
-o = Atom(dim_s=6, gamma=-36.274 * 10**6, name="oxygen")
+o = Atom(dim_s=1, gamma=0, name="oxygen")
 n = Atom(
     dim_s=[2, 3],
     gamma=[19.332 * 10**6, -27.120 * 10**6],
@@ -107,28 +104,36 @@ orig_atom = AtomPos.create_from_atom(
     atom=ph, position=mycalc.crystal.to_real_space([0, 0, 0.25 * 7.04])
 )
 
+# descriptive statistics
 v = mycalc.variance_estimate(orig_atom)
-
-
 def gauss(x):
     return np.exp(-0.5 * x**2 / v) / (2 * v * np.pi) ** 0.5
-
 
 print(v**0.5)
 k = mycalc.kurtosis_estimate(orig_atom)
 print(k)
 print(mycalc.mean_field_calc(orig_atom))
+
+# Distribution computation via Monte Carlo
 start = timer()
-my_distro = mycalc.simulation(orig_atom, 5000, "adp_example.dat")
+my_distro = mycalc.simulation(orig_atom, 5000, "adp_example_new.dat")
 end = timer()
 print("computation time " + str(end - start))
-# xg = my_distro.reshape(-1,1)
-# gmm4 = GaussianMixture(n_components=4).fit(xg)
-x = np.linspace(-200000, 200000, 10000)
-# logprob = gmm4.score_samples(x.reshape(-1, 1))
-# pdf = np.exp(logprob)
 
+# Gaussian mixture fix, there are 3 well resolved peaks
+xg = my_distro.reshape(-1, 1)
+gmm3 = GaussianMixture(n_components=3).fit(xg)
+x = np.linspace(-200000, 200000, 10000)
+logprob = gmm3.score_samples(x.reshape(-1, 1))
+pdf = np.exp(logprob)
 plt.hist(my_distro, bins=250, density=True, label="Monte-Carlo \n Simulation")
 plt.plot(x, gauss(x), color="green", label="Gaussian fit \n analytic")
-# plt.plot(x, pdf, color='black', linestyle='dashed', label = '4-Gaussian Mix \n of simulation')
+plt.plot(
+    x,
+    pdf,
+    color="black",
+    linestyle="dashed",
+    label="3-Gaussian Mix \n of simulation",
+)
 plt.show()
+print(gmm3.means_)
