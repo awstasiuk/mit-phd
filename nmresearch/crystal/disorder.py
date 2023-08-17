@@ -1,13 +1,11 @@
 from nmresearch.crystal.crystal import Crystal
 
-from numpy import zeros
-from numpy import pi
+from numpy import zeros, pi, dot
 from numpy.linalg import norm
 from numpy.random import default_rng
-from numpy import dot
 from numpy import array
 from pickle import load, dump
-from numpy import sinc
+
 
 
 class Disorder:
@@ -27,7 +25,7 @@ class Disorder:
     def heteronuclear_coupling(origin, source):
         """
         Compute the heteronuclear dipolar coupling strength for a pair of `Atom`s,
-        `origin` and `source` - result in
+        `origin` and `source` assuming magnetic field is pointing in the z-direction
         """
         p1 = origin.position
         p2 = source.position
@@ -46,14 +44,7 @@ class Disorder:
             / dx**3
         )
 
-    @staticmethod
-    def dot_product(avec, bvec):  # helper method, necessary for below
-        dot = 0
-        for i in range(3):
-            dot += avec[i] * bvec[i]
-        return dot
-
-    @staticmethod
+    
     def homonuclear_coupling(origin, source, bdir=[0, 0, 1]):
         """
         Compute the dipolar coupling strength for a pair of `Atom`s in rad/s,
@@ -67,7 +58,7 @@ class Disorder:
         r = (p2 - p1) * 10 ** (-10)
         dx = norm(r)
         rhat = r / dx
-        cos = Disorder.dot_product(-rhat, bdir)
+        cos = dot(-rhat, bdir)
         return (
             0.5
             * (1e-7)
@@ -261,94 +252,6 @@ class Disorder:
             + self.average_remainder(7, origin, bdir, a)
             + self.spin_diffusion_second_order(origin, bdir, a, 6)
         )
-
-    r"""
-    def OLD_spin_diffusion_coeff_parallel(
-        self, origin, bdir=[0, 0, 1]
-    ):  # Based on formula given in Khutsishvilli, 1970ish?
-        bdir = bdir / norm(bdir)
-        lattice = self.crystal.generate_lattice(self.shell_radius)
-        big_S = 0
-        numerator = 0
-        for atompos in lattice:
-            if atompos.name == origin.name:
-                if (
-                    not norm(atompos.position - origin.position) <= 0.1
-                ):  # maybe should be less than some small cutoff, hard to compare floats?
-                    big_S += (
-                        1
-                        / 3
-                        * (origin.dim_s**2 - 1)
-                        * Disorder.nuclear_coupling(origin, atompos, bdir) ** 2
-                    )
-                    numerator += (
-                        Disorder.nuclear_coupling(origin, atompos, bdir) ** 2
-                        * Disorder.dot_product(
-                            (origin.position - atompos.position) * 10**-10,
-                            bdir,
-                        )
-                        ** 2
-                    )
-            else:
-                big_S += (
-                    4
-                    / 27
-                    * (atompos.dim_s**2 - 1)
-                    * Disorder.nuclear_coupling(origin, atompos, bdir) ** 2
-                )
-        spectral_lambda = (3 / 2**0.5) / pi**0.5
-        pre_const = spectral_lambda * pi**0.5 / 72  # old constant
-        pre_const = 1 / 8 * (pi / 5) ** 0.5
-        D = pre_const * numerator / (big_S) ** 0.5
-        return D * 10**4  # in cm^2/s
-
-    @staticmethod
-    def perpendicular_vec(a):
-        if a[0] < a[2]:
-            return [0, a[2], -a[1]]
-        else:
-            return [-a[1], a[0], 0]
-
-    def OLD_spin_diffusion_coeff_perpendicular(
-        self, origin, bdir=[0, 0, 1]
-    ):  # Based on formula given in Khutsishvilli, 1970ish?, with different constants
-        perp_b = Disorder.perpendicular_vec(bdir)
-        perp_b = perp_b / norm(bdir)
-        lattice = self.crystal.generate_lattice(self.shell_radius)
-        big_S = 0
-        numerator = 0
-        for atompos in lattice:
-            if atompos.name == origin.name:
-                if (
-                    not norm(atompos.position - origin.position) <= 0.1
-                ):  # maybe should be less than some small cutoff, hard to compare floats?
-                    big_S += (
-                        1
-                        / 3
-                        * (origin.dim_s**2 - 1)
-                        * Disorder.nuclear_coupling(origin, atompos, perp_b)
-                        ** 2
-                    )
-                    numerator += (
-                        Disorder.nuclear_coupling(origin, atompos, perp_b) ** 2
-                        * norm(
-                            (origin.position - atompos.position) * 10**-10
-                        )
-                        ** 2
-                    )
-            else:
-                big_S += (
-                    4
-                    / 27
-                    * (atompos.dim_s**2 - 1)
-                    * Disorder.nuclear_coupling(origin, atompos, bdir) ** 2
-                )
-        spectral_lambda = (3 / 2**0.5) / pi**0.5
-        pre_const = spectral_lambda * pi**0.5 / 72
-        pre_const = 1 / 24 * (pi / 5) ** 0.5
-        D = pre_const * numerator / (big_S) ** 0.5
-        return D * 10**4  # in cm^2/s
-        """
 
     def get_network(self, origin):
         if origin in self._network.keys():
@@ -576,14 +479,6 @@ class Disorder:
                         ** 2
                     )
         return 2 * variance
-
-    """
-    def diffusion_fij(self, origin_1, origin_2, bdir=[0, 0, 1]):
-        crystal = self.homonuclear_double_generate_network(
-            origin_1, origin_2, bdir
-        )
-        return sum([sinc(spin.coupling) for spin in crystal])
-    """
 
     def kurtosis_estimate(self, origin):
         """

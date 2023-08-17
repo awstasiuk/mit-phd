@@ -1,15 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul 18 15:26:26 2023
-
-@author: garrettheller
-"""
-
 import numpy as np
-
 import matplotlib.pyplot as plt
-
 from timeit import default_timer as timer
 
 from nmresearch import Crystal
@@ -64,14 +54,6 @@ def gauss_v(x, va):
     return np.exp(-0.5 * x**2 / va) / (2 * va * np.pi) ** 0.5
 
 
-r"""
-my_atoms = caf2_xtal.generate_lattice(1)
-for atompos in my_atoms:
-    if atompos.name == "flourine":
-        v0 = mycalc.homonuclear_double_variance_estimate(orig_atom, atompos)
-        print("Minus variance krad^2/s^2: " + str(v0 * 1e-6))
-"""
-
 double_distro_minus = mycalc.homonuclear_double_simulation(
     orig_atom,
     second_atom,
@@ -92,10 +74,7 @@ plt.xlabel("rad/s")
 plt.show()
 
 hbar = 1.05457 * 10 ** (-34)
-# average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[0, 0, 1], a=a)
-# print("Remainder for 7 terms 001: " + str(average_remainder))
-# average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[1, 1, 1], a=a)
-# print("Remainder for 7 terms 111: " + str(average_remainder))
+
 
 d001 = mycalc.spin_diffusion_coeff(orig_atom, bdir=[0, 0, 1], a=a)
 d001_2 = mycalc.spin_diffusion_second_order(orig_atom, bdir=[0, 0, 1], a=a)

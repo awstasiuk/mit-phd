@@ -4,3 +4,5 @@ scipy
 tensorflow
 pfapack
 nmrglue
+pickle
+sklearn

@@ -20,14 +20,7 @@ cu = Atom(
     abundance=[0.697, 0.303],
     name=["copper", "copper"],
 )
-r"""
-pb = Atom(
-    dim_s=[2, 1],
-    gamma=[56.4e6, 0],
-    abundance=[0.221, 0.779],
-    name=["lead", "dummy"],
-)
-"""
+
 pb = Atom(dim_s=2, gamma=56.4e6, name="lead")
 ph = Atom(dim_s=2, gamma=108.291e6, name="phosphorous")
 # Oxygen have no nuclear spin so not added
@@ -79,22 +72,26 @@ second_atom = AtomPos.create_from_atom(atom=pb, position=pos2)
 
 v = mycalc.variance_estimate(second_atom)
 
-
 def gauss(x):
     return np.exp(-0.5 * x**2 / v) / (2 * v * np.pi) ** 0.5
 
 
+# print descriptive statistics about the distribution
 vs = mycalc.variance_estimate(orig_atom)
 print("Original atom standard deviation, krad/s: " + str(v**0.5 * 1e-3))
 print("Secondary atom standard deviation, krad/s: " + str(vs**0.5 * 1e-3))
 k = mycalc.kurtosis_estimate(second_atom)
 print("Kurtosis of distribution: " + str(k))
-# print(mycalc.mean_field_calc(orig_atom)) - Random sample print
+
+
+# Monte Carlo calculate the distribution itself
 start = timer()
 my_distro = mycalc.simulation(orig_atom, 5000, "lk99_example.dat")
 end = timer()
 print("computation time " + str(end - start))
 
+
+# Plot the generated histogram with a Gaussian fit
 xg = my_distro.reshape(-1, 1)
 x = np.linspace(-5000, 5000, 1000)
 plt.hist(
@@ -108,6 +105,7 @@ plt.legend()
 plt.show()
 
 
+# compute spin diffusion coefficients
 def precision_round(number, digits=3):
     power = "{:e}".format(number).split("e")[1]
     return round(number, -(int(power) - digits))
@@ -116,11 +114,6 @@ def precision_round(number, digits=3):
 a = 9.73753
 
 b111 = np.matmul(lk99_lat, [1, 1, 1])
-
-# average_remainder = mycalc.average_remainder(7, orig_atom, bdir=[0, 0, 1], a=a)
-# print("Remainder for 7 terms 001: " + str(average_remainder))
-# average_remainder = mycalc.average_remainder(7, orig_atom, bdir=b111, a=a)
-# print("Remainder for 7 terms 111: " + str(average_remainder))
 
 d001 = mycalc.spin_diffusion_coeff(orig_atom, bdir=[0, 0, 1], a=a)
 d001_2 = mycalc.spin_diffusion_second_order(orig_atom, bdir=[0, 0, 1], a=a)

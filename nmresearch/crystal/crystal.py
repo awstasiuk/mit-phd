@@ -9,6 +9,9 @@ class Crystal:
     the `unit_cell` (conventional unit cell) and the `lattice_vecs` (lattice vectors). 
     We want to take a convential unit cell, which will generally contain more than one atom. 
     Each `Atom` in the unit cell contains positional data, and instrinsic coupling strength data.
+
+    `lattice_vecs` should be a 3 dimensional real matrix consisting of the primitive lattice vectors
+    for the crystal, as columns of the matrix.
     """
 
     def __init__(self, unit_cell, lattice_vecs):

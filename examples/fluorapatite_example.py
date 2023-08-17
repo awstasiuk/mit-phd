@@ -9,6 +9,8 @@ from nmresearch import Disorder
 from nmresearch import Atom, AtomPos
 from sklearn.mixture import GaussianMixture
 
+
+# generate the FaP crystal
 d1 = 0.36853
 d2 = 0.39785
 fl = Atom(dim_s=2, gamma=251.662 * 10**6, name="flourine")
@@ -35,30 +37,37 @@ fp_lat = np.array(
         [0, 0, 6.887],
     ]
 )
+# crystal object
 fp_xtal = Crystal(unit_cell, fp_lat)
+# disorder computation vehicle, with 5 unitcell shells
 mycalc = Disorder(fp_xtal, 5)
+
+# set a central "test-spin"
 orig_atom = AtomPos.create_from_atom(atom=fl, position=[0, 0, 0.25 * 6.887])
+
+# set a secondary "test-spin" for correlations
 second_pos = np.matmul(fp_lat, [-1, 1, 0.75])
 second_atom = AtomPos.create_from_atom(atom=fl, position=second_pos)
 
+# analytically predict the variance for gaussian estimate
 v = mycalc.variance_estimate(orig_atom)
-
-
 def gauss(x):
     return np.exp(-0.5 * x**2 / v) / (2 * v * np.pi) ** 0.5
 
-
+# some more descriptive statistics analytically
+print("Standard deviation of central spin, krad/s: " + str(v**0.5 * 1e-3))
 vs = mycalc.variance_estimate(second_atom)
-print("Original atom standard deviation, krad/s: " + str(v**0.5 * 1e-3))
-print("Secondary atom standard deviation, krad/s: " + str(v**0.5 * 1e-3))
+print("Standard deviation of secondary spin, krad/s: " + str(vs**0.5 * 1e-3))
 k = mycalc.kurtosis_estimate(orig_atom)
 print("Kurtosis of distribution: " + str(k))
-# print(mycalc.mean_field_calc(orig_atom)) - Random sample print
+
+# Monte Carlo to generate the distribution
 start = timer()
 my_distro = mycalc.simulation(orig_atom, 10000, "fp_example.dat")
 end = timer()
 print("computation time " + str(end - start))
 
+# fit distribution to a 4-mean Gaussian mixture model
 xg = my_distro.reshape(-1, 1)
 gmm4 = GaussianMixture(n_components=4).fit(xg)
 x = np.linspace(-20000, 20000, 1000)
@@ -85,7 +94,7 @@ plt.ylabel("Probability")
 plt.legend()
 plt.show()
 
-
+# A gaussian with arbitrary variance
 def gauss_v(x, va):
     return np.exp(-0.5 * x**2 / va) / (2 * va * np.pi) ** 0.5
 
@@ -97,6 +106,8 @@ b111 = np.matmul(fp_lat, [1, 1, 1])
 a = 9.375
 
 
+
+# Spin diffusion computations
 def precision_round(number, digits=3):
     power = "{:e}".format(number).split("e")[1]
     return round(number, -(int(power) - digits))
