@@ -9,7 +9,7 @@
 ;
 ; td2 = 4, change WAHUHA cycles by 90 degrees to reduce systemic errors
 ; td1 = N_max
-; NS = 8 (or 16 if desired)
+; set NS = 16 for best results
 
 define delay scramble
 "scramble = .000030"

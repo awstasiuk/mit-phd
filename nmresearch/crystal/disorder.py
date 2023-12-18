@@ -580,6 +580,14 @@ class Disorder:
             with open(filename, "wb") as fil:
                 dump(my_distro_minus, fil)
         return my_distro_minus
+    
+    def disorder_sum(self, origin, zeta=1):
+        r"""
+        Estimate the average disorder strength for dimensionless temperature zeta = beta*hbar*omega/2
+        with linear approximation tanh(zeta)=zeta
+        """
+        crystal = self.get_network(origin)
+        return zeta*sum([spin.coupling for spin in crystal])
 
     @property
     def crystal(self):
