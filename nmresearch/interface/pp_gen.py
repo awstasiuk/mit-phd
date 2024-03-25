@@ -711,3 +711,180 @@ class PulseProgram:
         str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
         str_list.append("ph1 = (360) " + " ".join(to_str(ph1)))
         return f"\n".join(str_list)
+
+    @staticmethod
+    def pine8(fc=0, n_max=50, xx=False):
+        ph_prog = [
+            [0,180,180,0],
+            [0,180,180,0]
+        ]
+
+        ph_prog_len = len(ph_prog)
+        ph_prog_depth = len(ph_prog[0])
+
+        shifts = [
+            [
+                fc * (ph_prog_len * i + k)
+                for i in range(n_max * ph_prog_depth)
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        pine8_shifted = [
+            [
+                (ph_prog[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(pine8_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
+
+    @staticmethod
+    def pine8_mqc(fc=0, n_max=50, M=10):
+        ph_prog_fwd = [
+            [0,180,180,0],
+            [0,180,180,0]
+        ]
+
+        ph_prog_bwd = [
+            [90,270,270,90],
+            [90,270,270,90]
+        ]
+
+        ph_prog_len = len(ph_prog_fwd)
+        ph_prog_depth = len(ph_prog_fwd[0])
+
+        shifts = [
+            [
+                fc * (ph_prog_len * i + k)
+                for i in range(n_max * ph_prog_depth)
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        fwd_shifted = [
+            [
+                (ph_prog_fwd[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        bwd_shifted = [
+            [
+                (ph_prog_bwd[k][idx % ph_prog_depth] + shift + fc*ph_prog_depth*ph_prog_len) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+
+        str_list = []
+
+
+        for idx, phases in enumerate(fwd_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        str_list.append("")
+
+        for idx, phases in enumerate(bwd_shifted):
+            str_list.append("ph" + str(idx+ph_prog_len) + " = (360) " + " ".join(to_str(phases)))
+
+        str_list.append("")
+        str_list.append(";Increment encoding z-rotation")
+        str_list.append("")
+
+        for idx in range(ph_prog_len,2*ph_prog_len,1):
+            str_list.append("5m ph" + str(idx) + "*" + str(int(360/(2*M))) )
+
+        str_list.append("")
+        str_list.append(";increment frame change to account for longer evolution")
+        str_list.append("")
+
+        for idx in range(ph_prog_len,2*ph_prog_len,1):
+            str_list.append("5m ip" + str(idx) + "*" + str((fc*ph_prog_depth*ph_prog_len) % 360))
+
+        return f"\n".join(str_list)
+    
+
+
+def mqc_generic_zz(ph_prog_fwd,ph_prog_bwd,fc=0,n_max=15,M=10):
+    if 180/M != int(180/M):
+        return "Invalid Encoding"
+    
+    ph_prog_len = len(ph_prog_fwd)
+    ph_prog_depth = len(ph_prog_fwd[0])
+
+    # generate the frame change shifts for a single phase program
+    shifts = [
+        [
+            fc * (ph_prog_len * i + k)
+            for i in range(n_max * ph_prog_depth)
+        ]
+        for k in range(ph_prog_len)
+    ]
+
+    # generated shifted rotation angles for forward evolution
+    fwd_shifted = [
+        [
+            (ph_prog_fwd[k][idx % ph_prog_depth] + shift) % 360
+            for idx, shift in enumerate(shifts[k])
+        ]
+        for k in range(ph_prog_len)
+    ]
+
+    # generate shifted rotation angles for backward evoltion. Needs to be incremeneted during the pp
+    # for each additional time evolution period
+    bwd_shifted = [
+        [
+            (ph_prog_bwd[k][idx % ph_prog_depth] + shift + fc*ph_prog_depth*ph_prog_len) % 360
+            for idx, shift in enumerate(shifts[k])
+        ]
+        for k in range(ph_prog_len)
+    ]
+
+    # Print the evoltion phase programs
+    str_list = []
+    for idx, phases in enumerate(fwd_shifted):
+        str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+    str_list.append("")
+
+    for idx, phases in enumerate(bwd_shifted):
+        str_list.append("ph" + str(idx+ph_prog_len) + " = (360) " + " ".join(to_str(phases)))
+
+
+    # Print the encoding rotation phases
+    str_list.append("")
+    str_list.append(";Increment encoding z-rotation")
+    str_list.append("")
+
+    for idx in range(ph_prog_len,2*ph_prog_len,1):
+        str_list.append("5m ph" + str(idx) + "*" + str(int(360/(2*M))) )
+
+    # Print the frame change increments to account for an additional evoltuion period.
+    str_list.append("")
+    str_list.append(";increment frame change to account for longer evolution")
+    str_list.append("")
+
+    for idx in range(ph_prog_len,2*ph_prog_len,1):
+        str_list.append("5m ip" + str(idx) + "*" + str((fc*ph_prog_depth*ph_prog_len) % 360))
+
+    return f"\n".join(str_list)
+
+    

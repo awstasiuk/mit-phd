@@ -1,5 +1,7 @@
 #include <Avance.incl>
 
+; Calibrate and test the solid echo delay time in an X-tau-Y-Measure Sequence
+
 define list<delay> tau = {0.000005 0.000010 0.000015 0.000020 0.000025 0.000030 0.000035 0.000040}
 
 1 ze
@@ -10,9 +12,8 @@ define list<delay> tau = {0.000005 0.000010 0.000015 0.000020 0.000025 0.000030 
   tau
   (p1 ph2):f2
 
-
   go=2 ph31 
-  30m mc #0 to 2 F0(zd)
+  1m wr #0 if #0
 
   5m tau.inc
   lo to 2 times td1
