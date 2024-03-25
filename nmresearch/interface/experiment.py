@@ -29,10 +29,11 @@ class Experiment:
         self.nmr_dic, self.nmr_data = ng.fileio.bruker.read(self.file)
         self.td = self.nmr_data.shape
 
-    def calibrate90(self):
+    def calibrate90(self,use_imag=True):
         if len(self.td) != 3:
             raise ValueError("Invalid Experiment shape for pulse calibration")
-        vals = np.imag(self.nmr_data[:, :, 0])
+        
+        vals = np.imag(self.nmr_data[:, :, 0]) if use_imag else np.real(self.nmr_data[:, :, 0])
         plt.plot(vals[0], label="1 wrap")
         plt.plot(vals[1], label="2 wraps")
         plt.plot(vals[2], label="3 wraps")
@@ -49,13 +50,13 @@ class Experiment:
 
         print("array index of max signal is " + str(np.argmax(high_contrast)))
 
-    def calibrate_framechange(self, phase_inc=2):
-        signal = np.real(self.nmr_data[:, :, 0])
+    def calibrate_framechange(self, phase_inc=1, offset=0,use_real=True):
+        signal = np.real(self.nmr_data[:, :, 0]) if use_real else np.imag(self.nmr_data[:, :, 0])
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
         x, y = np.meshgrid(
-            range(0, phase_inc * (signal.shape[0]), phase_inc),
+            range(offset, phase_inc * (signal.shape[0])+offset, phase_inc),
             range(signal.shape[1]),
         )
         c = ax.plot_wireframe(x, y, signal.transpose())
@@ -66,7 +67,7 @@ class Experiment:
         plt.show()
 
         norms = [sum(abs(signal[k, :])) for k in range(self.td[0])]
-        phases = np.array(range(0, phase_inc * (signal.shape[0]), phase_inc))
+        phases = np.array(range(offset, phase_inc * (signal.shape[0])+offset, phase_inc))
         plt.scatter(phases, norms)
         cs = CubicSpline(phases, norms)
         xs = np.arange(phases[0], phases[-1], phase_inc / 50)
@@ -115,7 +116,7 @@ class Experiment:
 
         return vals_real, vals_imag
 
-    def offset_cal(self, use_spline=False, pad_factor=2):
+    def offset_cal(self, use_spline=False, pad_factor=2, width=5e4):
         signal = np.pad(self.nmr_data, (0, (2**pad_factor - 1) * len(self.nmr_data)))
 
         t_real = [2 * i * 3.350 for i in range(len(signal))]
@@ -146,7 +147,7 @@ class Experiment:
         plt.xlabel("Frequency (Hz)")
         plt.ylabel("Fourier Transform")
         plt.title("Offset Calibration")
-        plt.xlim([-50000, 50000])
+        plt.xlim([-width, width])
 
         arr, _ = find_peaks(abs(ft) / N, height=max(abs(ft) / N) / 2)
         idx = arr[(len(arr) // 2) - 1]
@@ -227,8 +228,7 @@ class Experiment:
                 vals[idx] = expt / max(expt)
         return vals
 
-    def mqc(self, enc_td2=True):
-        cycle = 24 * 5.0
+    def mqc(self, enc_td2=True,cycle=24*5):
         Smt = np.real(self.nmr_data[:, :, 0])
 
         if enc_td2:
