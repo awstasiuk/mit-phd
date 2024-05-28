@@ -359,6 +359,69 @@ class PulseProgram:
         return whh_fc, (whh_cycles * 8 * fc)
 
     @staticmethod
+    def disorder_fidelity(fc, n_max=25):
+        r"""
+        Generates the phase programs needed to measure disordered Zeeman states evolving
+        under the Ken16 with arbitrary Z(phi) and Ry(theta) kicking. See the pp
+        dtc_ken16_170_disZ_fc9 as an example.
+        """
+        glb_ph = 0
+
+        # first pulse
+        ph0 = [270, 90]
+        glb_ph += fc
+
+        # first wahuha sequence (ph1,ph2,ph3,ph4)
+        whh1, whh_ph1 = PulseProgram.wahuha_helper(glb_ph, fc, whh_cycles=n_max)
+        glb_ph += whh_ph1
+
+        # recovery x pulse
+        ph5 = [glb_ph % 360 for _ in range(2)]
+        ph5.extend([(180 + glb_ph) % 360 for _ in range(2)])
+        glb_ph += fc
+
+        # inv recovery x pulse
+        ph14 = [glb_ph % 360 for _ in range(4)]
+        ph14.extend([(180 + glb_ph) % 360 for _ in range(4)])
+        glb_ph += fc
+
+        # second wahuha sequence (ph15,ph16,ph17,ph18)
+        whh2, whh_ph2 = PulseProgram.wahuha_helper(glb_ph, fc, whh_cycles=n_max)
+        glb_ph += whh_ph2
+
+        # shelving pulse
+        ph19 = [(ang + glb_ph) % 360 for ang in [270, 270, 90, 90]]
+        glb_ph += fc
+
+        str_list = []
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(whh1[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(whh1[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(whh1[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(whh1[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        str_list.append("; evolution would go here")
+        str_list.append("")
+        str_list.append("ph14 = (360) " + " ".join(to_str(ph14)))
+        str_list.append("")
+        str_list.append("ph15 = (360) " + " ".join(to_str(whh2[0])))
+        str_list.append("ph16 = (360) " + " ".join(to_str(whh2[1])))
+        str_list.append("ph17 = (360) " + " ".join(to_str(whh2[2])))
+        str_list.append("ph18 = (360) " + " ".join(to_str(whh2[3])))
+        str_list.append("")
+        str_list.append("ph19 = (360) " + " ".join(to_str(ph19)))
+        str_list.append("")
+        str_list.append("ph20 = 0 2")
+        str_list.append("ph31 = 1 3 3 1 3 1 1 3")
+
+        return f"\n".join(str_list)
+
+
+    @staticmethod
     def dtc_dis_int(theta, fc, n_max=50):
         r"""
         Generates the phase programs needed to measure disordered Zeeman states evolving
@@ -875,7 +938,7 @@ class PulseProgram:
         str_list.append("")
 
         for idx in range(ph_prog_len,2*ph_prog_len,1):
-            str_list.append("5m ph" + str(idx) + "*" + str(int(360/(2*M))) )
+            str_list.append("5m ip" + str(idx) + "*" + str(int(360/(2*M))) )
 
         # Print the frame change increments to account for an additional evoltuion period.
         str_list.append("")

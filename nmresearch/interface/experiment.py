@@ -228,8 +228,11 @@ class Experiment:
                 vals[idx] = expt / max(expt)
         return vals
 
-    def mqc(self, enc_td2=True,cycle=24*5):
-        Smt = np.real(self.nmr_data[:, :, 0])
+    def mqc(self, enc_td2=True,cycle=24*5,use_real=True):
+        if use_real:
+            Smt = np.real(self.nmr_data[:, :, 0])
+        else:
+            Smt = np.imag(self.nmr_data[:, :, 0])
 
         if enc_td2:
             td1 = self.td[0]
