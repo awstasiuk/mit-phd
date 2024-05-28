@@ -83,7 +83,7 @@ class Lanczos:
         start = timer()
         end = 0
         O0 = self.op
-        A1 = self.Liouv @ O0
+        A1 = self.liouv @ O0
         b1 = np.sqrt(A1.conj() @ A1)
         O1 = (1 / b1) * A1
         self.krylov_basis = np.array([O0, O1])
@@ -91,7 +91,7 @@ class Lanczos:
 
         for j in range(2, max_iter, 1):
             Aj = (
-                self.Liouv @ self.krylov_basis[-1]
+                self.liouv @ self.krylov_basis[-1]
                 - self.lanczos_coef[-1] * self.krylov_basis[-2]
             )
             for i in range(j):

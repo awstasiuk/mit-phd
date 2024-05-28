@@ -18,6 +18,11 @@ import nmresearch.interface.pp_gen
 import nmresearch.crystal.atom
 import nmresearch.crystal.crystal
 import nmresearch.crystal.disorder
+import nmresearch.lanczos.lanczos
+import nmresearch.lanczos.op_basis
+import nmresearch.lanczos.utils
+import nmresearch.lanczos.hamiltonian
+
 
 from nmresearch.fermion.operator import Operator
 from nmresearch.fermion.majorana import PauliString, MajoranaString
@@ -28,3 +33,6 @@ from nmresearch.interface.pp_gen import PulseProgram
 from nmresearch.crystal.atom import Atom, AtomPos
 from nmresearch.crystal.crystal import Crystal
 from nmresearch.crystal.disorder import Disorder
+from nmresearch.lanczos.lanczos import Lanczos
+from nmresearch.lanczos.hamiltonian import Hamiltonian
+from nmresearch.lanczos.op_basis import PauliMatrix
