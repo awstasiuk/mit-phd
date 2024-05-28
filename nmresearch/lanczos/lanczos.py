@@ -93,6 +93,10 @@ class Lanczos:
         print("Computation took " + str(end-start) + " sec")
 
     def auto_correlation(self, times):
+        r"""
+        Uses the lanczos coefficients to compute the autocorrelation with help of Scipy to perform
+        the matrix exponentials in the Krylov space.
+        """
         if self.lanczos_coef is None:
             print("Lanczos coefficients must be computed!")
             return
@@ -135,6 +139,11 @@ class Lanczos:
         plt.show()
 
     def tight_binding_complexity(self, start, end, max_step=.01, plot=True):
+        r"""
+        Solves the tight binding model seeded from the lanczos coefficients. This should be
+        equivalent to computing the evolution of the initial operator in the Krylov basis,
+        up to a power of the imaginary unit.
+        """
         if self.lanczos_coef is None:
             print("Lanczos coefficients must be computed!")
             return
@@ -160,6 +169,12 @@ class Lanczos:
             plt.show()
 
     def compute_krylov_complexity(self, plot=True):
+        r"""
+        Uses the results from the tight binding simulation to compute the Krylov complexity, which
+        is equal to the expected site occupation of the virtual tight-binding particle. For a generically
+        scrambling thermodynamic Hamiltonian, this is expected to grow exponentially at a rate which bounds
+        the Lyapunov exponent.
+        """
         if self.tbc_vals is None:
             print("Solve the semi-infinite tight-binding model first")
             return 
