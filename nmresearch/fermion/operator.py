@@ -531,7 +531,7 @@ class Operator:
         return Operator.quadratic_form(A, np.zeros((n_spin, n_spin)))
 
     @staticmethod
-    def generalXY(n_spin, u, v, B=0, J=1, perdioic=False):
+    def generalXY(n_spin, u, v, B=0, J=1, periodic=False):
         r"""
         Generate the nearest neighbor XY hamiltonian quadratic form, with
         `H=B*Sz + J*Sum(u*XX + v*YY)`, where u and v are arbitrary real numbers.
