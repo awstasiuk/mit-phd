@@ -78,3 +78,8 @@ def super_ham(ham):
     """
     dim = ham.shape[0]
     return (to_super(ham,sp.sparse.eye(dim)) - to_super(sp.sparse.eye(dim),ham))
+
+def basis_vec(dim,idx):
+    vec = np.zeros(dim)
+    vec[idx]=1.0
+    return vec
