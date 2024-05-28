@@ -6,11 +6,12 @@ import scipy as sp
 
 from nmresearch.lanczos.utils import generate_binary_strings, binary_to_index
 
-X = np.array([[0,1],[1,0]])
-Y = np.array([[0,-1j],[1j,0]])
-Z = np.array([[1,0],[0,-1]])
+X = np.array([[0, 1], [1, 0]])
+Y = np.array([[0, -1j], [1j, 0]])
+Z = np.array([[1, 0], [0, -1]])
 
-pauli_label_ops = [('I', np.eye(2)), ('X', X), ('Y', Y), ('Z', Z)]
+pauli_label_ops = [("I", np.eye(2)), ("X", X), ("Y", Y), ("Z", Z)]
+
 
 class OperatorBasis(object):
     """
@@ -42,8 +43,10 @@ class OperatorBasis(object):
             assert len(bases) == 1
             basis_rest = bases[0]
 
-        labels_ops = [(b1l + b2l, np.kron(b1, b2)) for (b1l, b1), (b2l, b2) in
-                      itertools.product(self, basis_rest)]
+        labels_ops = [
+            (b1l + b2l, np.kron(b1, b2))
+            for (b1l, b1), (b2l, b2) in itertools.product(self, basis_rest)
+        ]
 
         return OperatorBasis(labels_ops)
 
@@ -79,10 +82,11 @@ class OperatorBasis(object):
 
 PAULI_BASIS = OperatorBasis(pauli_label_ops)
 
+
 class PauliMatrix:
 
     def __init__(self, sites):
-        self.L=sites
+        self.L = sites
         self.strings = generate_binary_strings(sites)
 
     @lru_cache
@@ -90,14 +94,14 @@ class PauliMatrix:
         r"""
         site is a number from 0 to L-1
         """
-        sp_mat = sp.sparse.lil_matrix((2**self.L,2**self.L))
+        sp_mat = sp.sparse.lil_matrix((2**self.L, 2**self.L))
         for bin in self.strings:
             amp = 1
-            if bin[site]=='0':
-                target = bin[:site] +'1'+bin[site+1:]
+            if bin[site] == "0":
+                target = bin[:site] + "1" + bin[site + 1 :]
             else:
-                target = bin[:site] +'0'+bin[site+1:]
-            sp_mat[binary_to_index(bin),binary_to_index(target)] = amp
+                target = bin[:site] + "0" + bin[site + 1 :]
+            sp_mat[binary_to_index(bin), binary_to_index(target)] = amp
         return sp_mat.tocsr()
 
     @lru_cache
@@ -105,15 +109,15 @@ class PauliMatrix:
         r"""
         site is a number from 0 to L-1
         """
-        sp_mat = sp.sparse.lil_matrix((2**self.L,2**self.L),dtype=np.complex128)
+        sp_mat = sp.sparse.lil_matrix((2**self.L, 2**self.L), dtype=np.complex128)
         for bin in self.strings:
-            if bin[site]=='0':
-                target = bin[:site] +'1'+bin[site+1:]
+            if bin[site] == "0":
+                target = bin[:site] + "1" + bin[site + 1 :]
                 amp = 1j
             else:
-                target = bin[:site] +'0'+bin[site+1:]
+                target = bin[:site] + "0" + bin[site + 1 :]
                 amp = -1j
-            sp_mat[binary_to_index(bin),binary_to_index(target)] = amp
+            sp_mat[binary_to_index(bin), binary_to_index(target)] = amp
         return sp_mat.tocsr()
 
     @lru_cache
@@ -121,15 +125,16 @@ class PauliMatrix:
         r"""
         site is a number from 0 to L-1
         """
-        sp_mat = sp.sparse.lil_matrix((2**self.L,2**self.L))
+        sp_mat = sp.sparse.lil_matrix((2**self.L, 2**self.L))
         for bin in self.strings:
             target = bin
-            if bin[site]=='0':
-                amp=1
+            if bin[site] == "0":
+                amp = 1
             else:
-                amp=-1
-            sp_mat[binary_to_index(bin),binary_to_index(target)] = amp
+                amp = -1
+            sp_mat[binary_to_index(bin), binary_to_index(target)] = amp
         return sp_mat.tocsr()
+
 
 @lru_cache
 def computational2pauli_basis_matrix(dim) -> np.ndarray:
@@ -161,6 +166,7 @@ def computational2pauli_basis_matrix(dim) -> np.ndarray:
     """
     return pauli2computational_basis_matrix(dim).conj().T / dim
 
+
 @lru_cache
 def pauli2computational_basis_matrix(dim) -> np.ndarray:
     r"""
@@ -188,15 +194,16 @@ def pauli2computational_basis_matrix(dim) -> np.ndarray:
     """
     n_qubits = int(np.log2(dim))
 
-    #conversion_mat = np.zeros((dim ** 2, dim ** 2), dtype=complex)
-    conversion_mat = sp.sparse.csr_matrix((dim**2,dim**2),dtype=np.complex128)
+    # conversion_mat = np.zeros((dim ** 2, dim ** 2), dtype=complex)
+    conversion_mat = sp.sparse.csr_matrix((dim**2, dim**2), dtype=np.complex128)
     for i, pauli in enumerate(n_qubit_pauli_basis(n_qubits)):
-        pauli_label =  sp.sparse.lil_matrix((dim**2,1),dtype=np.complex128)
-        pauli_label[i] = 1.
+        pauli_label = sp.sparse.lil_matrix((dim**2, 1), dtype=np.complex128)
+        pauli_label[i] = 1.0
         pauli_mat = pauli[1]
         conversion_mat += sp.sparse.kron(vec(pauli_mat), pauli_label.T)
 
     return conversion_mat
+
 
 def n_qubit_pauli_basis(n):
     """
@@ -207,7 +214,7 @@ def n_qubit_pauli_basis(n):
     :rtype: OperatorBasis
     """
     if n >= 1:
-        return PAULI_BASIS ** n
+        return PAULI_BASIS**n
     else:
         raise ValueError("n = {} should be at least 1.".format(n))
 
@@ -232,6 +239,7 @@ def vec(matrix: np.ndarray) -> np.ndarray:
     """
     return matrix.T.reshape((-1, 1))
 
+
 def superop2pauli_liouville(superop: np.ndarray) -> np.ndarray:
     """
     Converts a superoperator into a pauli_liouville matrix.
@@ -244,4 +252,3 @@ def superop2pauli_liouville(superop: np.ndarray) -> np.ndarray:
     dim = int(np.sqrt(superop.shape[0]))
     c2p_basis_transform = computational2pauli_basis_matrix(dim)
     return c2p_basis_transform @ superop @ c2p_basis_transform.conj().T * dim
-
