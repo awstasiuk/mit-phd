@@ -86,7 +86,7 @@ def binary_to_index(bin_str):
 
 
 def to_super(opA, opB):
-    return sp.sparse.kron(opB, opA.T)
+    return sp.kron(opB, opA.T)
 
 
 def super_ham(ham):
@@ -94,7 +94,7 @@ def super_ham(ham):
     This used to be `eye_array` but this version of scipy
     """
     dim = ham.shape[0]
-    return to_super(ham, sp.sparse.eye(dim)) - to_super(sp.sparse.eye(dim), ham)
+    return to_super(ham, sp.eye(dim)) - to_super(sp.eye(dim), ham)
 
 
 def basis_vec(dim, idx):

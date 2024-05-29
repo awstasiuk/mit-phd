@@ -34,14 +34,14 @@ class Lanczos:
         end = 0
         O0 = self.op
         A1 = self.liouv @ O0
-        b1 = np.sqrt(A1.conj() @ A1)
+        b1 = np.sqrt((A1.T.conj() @ A1).data[0])
         O1 = (1 / b1) * A1
-        self.krylov_basis = np.array([O0, O1])
-        self.lanczos_coef = np.array([b1])
+        self.krylov_basis = [O0, O1]
+        self.lanczos_coef = [b1]
 
         def lanczos_iteration(liouv, On2, On1, bn1, tol=1e-10):
             An = liouv @ On1 - bn1 * On2
-            bn = np.sqrt(An.conj() @ An)
+            bn = np.sqrt((An.T.conj() @ An).data[0])
             if np.round(bn, 16) < tol:
                 return None, 0
             return (1 / bn) * An, bn
@@ -58,13 +58,13 @@ class Lanczos:
                 self.lanczos_coef.append(bn)
                 return True
             else:
-                end = timer()
                 return False
 
         counter = 1
         while counter < max_iter and generate_next():
             counter += 1
 
+        end = timer()
         print(
             "Computation took "
             + str(end - start)
@@ -84,10 +84,10 @@ class Lanczos:
         end = 0
         O0 = self.op
         A1 = self.liouv @ O0
-        b1 = np.sqrt(A1.conj() @ A1)
+        b1 = np.sqrt((A1.T.conj() @ A1).data[0])
         O1 = (1 / b1) * A1
-        self.krylov_basis = np.array([O0, O1])
-        self.lanczos_coef = np.array([b1])
+        self.krylov_basis = [O0, O1]
+        self.lanczos_coef = [b1]
 
         for j in range(2, max_iter, 1):
             Aj = (
@@ -95,8 +95,12 @@ class Lanczos:
                 - self.lanczos_coef[-1] * self.krylov_basis[-2]
             )
             for i in range(j):
-                Aj = Aj - (self.krylov_basis[i].conj() @ Aj) * self.krylov_basis[i]
-            bj = np.round(np.sqrt(Aj.conj() @ Aj), 16)
+                Aj = (
+                    Aj
+                    - (self.krylov_basis[i].T.conj() @ Aj).data[0]
+                    * self.krylov_basis[i]
+                )
+            bj = np.round(np.sqrt((Aj.T.conj() @ Aj).data[0]), 16)
             if bj < tol:
                 print("Lanczos Algorithm terminated at a 0-vector")
                 break
