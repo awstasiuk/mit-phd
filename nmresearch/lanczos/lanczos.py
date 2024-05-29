@@ -193,7 +193,7 @@ class Lanczos:
             return
         if self.B is None:
             self.B = sp.sparse.diags(
-                [-1 * self.lanczos_coef, self.lanczos_coef], [1, -1]
+                [-1 * np.array(self.lanczos_coef), np.array(self.lanczos_coef)], [1, -1]
             )
         if self.e0 is None:
             self.e0 = basis_vec(self.L.shape[0], 0)
