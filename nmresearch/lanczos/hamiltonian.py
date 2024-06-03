@@ -3,7 +3,7 @@ from random import random
 from numpy import complex128
 
 from nmresearch.lanczos.op_basis import PauliMatrix, superop2pauli_liouville
-from nmresearch.lanczos.utils import super_ham
+from nmresearch.lanczos.utils import super_ham, super_ham_alt
 
 
 class Hamiltonian:
@@ -51,6 +51,10 @@ class Hamiltonian:
 
     def to_super(self):
         return super_ham(self.ham)
+
+    def to_super_alt(self):
+        return super_ham_alt(self.ham)
+
 
     def to_pauli_perm(self):
         return superop2pauli_liouville(self.to_super())

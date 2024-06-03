@@ -1,6 +1,5 @@
 from numpy import log, zeros
-from scipy.sparse import kron, eye
-from functools import lru_cache
+from scipy.sparse import kron, identity, kronsum
 
 
 def base4_to_index(bin_str):
@@ -85,7 +84,7 @@ def binary_to_index(bin_str):
 
 
 def to_super(opA, opB):
-    return kron(opB, opA.T)
+    return kron(opB, opA.T,format='csr')
 
 
 def super_ham(ham):
@@ -93,8 +92,12 @@ def super_ham(ham):
     This used to be `eye_array` but this version of scipy
     """
     dim = ham.shape[0]
-    return to_super(ham, eye(dim)) - to_super(eye(dim), ham)
+    id = identity(dim,format='coo')
+    temp = ham.tocoo()
+    return to_super(temp, id) - to_super(id, temp)
 
+def super_ham_alt(ham):
+    return kronsum(-1*ham, ham.T,format='csr')
 
 def basis_vec(dim, idx):
     vec = zeros(dim)

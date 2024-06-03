@@ -35,5 +35,5 @@ from nmresearch.crystal.crystal import Crystal
 from nmresearch.crystal.disorder import Disorder
 from nmresearch.lanczos.lanczos import Lanczos
 from nmresearch.lanczos.hamiltonian import Hamiltonian
-from nmresearch.lanczos.op_basis import PauliMatrix
+from nmresearch.lanczos.op_basis import PauliMatrix, vec
 from nmresearch.lanczos.utils import *
