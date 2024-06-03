@@ -20,13 +20,14 @@ class Hamiltonian:
             A = [random() for _ in range(self.sites - 1)]
 
         L = self.sites
-        if self.ham is None:
-            self.ham = csr_matrix((2**L, 2**L), dtype=complex128)
+        d = self.dim
+        p = self.paulis
+        h = self.ham
+        if h is None:
+            h = csr_matrix((d, d), dtype=complex128)
         for i in range(1, L):
-            self.ham = self.ham + A[i - 1] * (
-                self.paulis.sigmaX(0) @ self.paulis.sigmaX(i)
-                + self.paulis.sigmaY(0) @ self.paulis.sigmaY(i)
-            )
+            h = h + A[i - 1] * (p.sigmaX(0) @ p.sigmaX(i) + p.sigmaY(0) @ p.sigmaY(i))
+        self.ham = h
 
     def H_cs_scrambling(self, cs_coupling=None, bath_couplings=None):
         A = cs_coupling
@@ -38,16 +39,15 @@ class Hamiltonian:
             J = [[0.1 * (random() - 0.5) for _ in range(i)] for i in range(L - 1)]
 
         self.H_central_spin(A)
+        h = self.ham
+        p = self.paulis
         for i in range(1, L):
             for j in range(1, i):
-                self.ham = self.ham + J[i - 1][j - 1] * (
-                    self.paulis.sigmaY(i) @ self.paulis.sigmaY(j)
-                    - 0.5
-                    * (
-                        self.paulis.sigmaX(i) @ self.paulis.sigmaX(j)
-                        + self.paulis.sigmaZ(i) @ self.paulis.sigmaZ(j)
-                    )
+                h = h + J[i - 1][j - 1] * (
+                    p.sigmaY(i) @ p.sigmaY(j)
+                    - 0.5 * (p.sigmaX(i) @ p.sigmaX(j) + p.sigmaZ(i) @ p.sigmaZ(j))
                 )
+        self.ham = h
 
     def to_super(self):
         return super_ham(self.ham)
