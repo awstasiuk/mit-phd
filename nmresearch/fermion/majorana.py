@@ -1,11 +1,9 @@
 from nmresearch.fermion.math import Math as fm
 from nmresearch.fermion.operator import Operator
 
-import numpy as np
-from scipy import linalg as la
+from numpy import sqrt
 from math import e, pi
 import itertools
-import tensorflow as tf
 
 
 class PauliString:
@@ -105,7 +103,7 @@ class MajoranaString:
 
                 sites.append(j)
                 evo_bools.append(evo)
-                pre = pre * (-2j) ** (j) * np.sqrt(2)
+                pre = pre * (-2j) ** (j) * sqrt(2)
                 if pauli == "X":
                     majoranas.append("A")
                     pre = -1 * pre

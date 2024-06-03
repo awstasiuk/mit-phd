@@ -1,6 +1,5 @@
-import numpy as np
-import scipy.sparse as sp
-import math, cmath
+from numpy import log, zeros
+from scipy.sparse import kron, eye
 from functools import lru_cache
 
 
@@ -28,7 +27,7 @@ def pauli_to_index(pauli_str):
 def paulivec_to_str(pauli, tol=1e-10):
     op_list = []
     dim = len(pauli)
-    sys = np.log(dim) / np.log(4)
+    sys = log(dim) / log(4)
     for idx, val in enumerate(pauli):
         if abs(val) > tol:
             op_list.append(str(val) + "*" + index_to_pauli(idx, str_len=sys))
@@ -86,7 +85,7 @@ def binary_to_index(bin_str):
 
 
 def to_super(opA, opB):
-    return sp.kron(opB, opA.T)
+    return kron(opB, opA.T)
 
 
 def super_ham(ham):
@@ -94,10 +93,10 @@ def super_ham(ham):
     This used to be `eye_array` but this version of scipy
     """
     dim = ham.shape[0]
-    return to_super(ham, sp.eye(dim)) - to_super(sp.eye(dim), ham)
+    return to_super(ham, eye(dim)) - to_super(eye(dim), ham)
 
 
 def basis_vec(dim, idx):
-    vec = np.zeros(dim)
+    vec = zeros(dim)
     vec[idx] = 1.0
     return vec

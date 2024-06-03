@@ -1,8 +1,6 @@
-import numpy as np
-import scipy.linalg as la
-import scipy.sparse as sp
-import math, cmath
-import tensorflow as tf
+from numpy import array, conj, pi, diag
+from cmath import exp
+from tensorflow import constant, tensordot, complex128, einsum
 from functools import lru_cache
 
 
@@ -20,19 +18,19 @@ class Math:
     @staticmethod
     def chop(expr, delta=10**-10):
         if hasattr(expr, "__iter__") and len(expr.shape) > 0:
-            return np.array([Math.chop(x) for x in expr])
+            return array([Math.chop(x) for x in expr])
         else:
             return 0 if -delta <= abs(expr) <= delta else expr
 
     @staticmethod
     def adj(mat):
-        return np.conj(mat.T)
+        return conj(mat.T)
 
     @staticmethod
     def exp_diag(vec, t):
-        angles = (vec * t) % (2 * np.pi)
-        diag = [cmath.exp(-1j * angle) for angle in angles]
-        return np.diag(diag)
+        angles = (vec * t) % (2 * pi)
+        diag = [exp(-1j * angle) for angle in angles]
+        return diag(diag)
 
     @staticmethod
     def tensor_product(A, B):
@@ -40,9 +38,9 @@ class Math:
         compute the tensor outer product. tensorflow does this much faster than we can
         natively in python, so we wrap around their existing functionality.
         """
-        A = tf.constant(A, dtype=tf.complex128)
-        B = tf.constant(B, dtype=tf.complex128)
-        return tf.tensordot(A, B, axes=0).numpy()
+        A = constant(A, dtype=complex128)
+        B = constant(B, dtype=complex128)
+        return tensordot(A, B, axes=0).numpy()
 
     @staticmethod
     def tensor_change_of_basis(tensor, matrix, reversed=False):
@@ -68,11 +66,9 @@ class Math:
             chars_upper.reverse()
 
         ein = ",".join(lhs) + " -> " + "".join(chars_upper)
-        mats = [tf.constant(tensor, dtype=tf.complex128)]
-        mats.extend(
-            [tf.constant(matrix, dtype=tf.complex128) for _ in range(len(chars))]
-        )
-        return tf.einsum(ein, *mats).numpy()
+        mats = [constant(tensor, dtype=complex128)]
+        mats.extend([constant(matrix, dtype=complex128) for _ in range(len(chars))])
+        return einsum(ein, *mats).numpy()
 
     @staticmethod
     @lru_cache

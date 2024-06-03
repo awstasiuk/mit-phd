@@ -1,5 +1,6 @@
-import numpy as np
-import scipy as sp
+from numpy import sqrt, round, array, real, arange, sum
+from scipy.sparse import diags
+from scipy.sparse.linalg import expm_multiply
 from timeit import default_timer as timer
 import seaborn as sb
 import matplotlib.pyplot as plt
@@ -34,15 +35,15 @@ class Lanczos:
         end = 0
         O0 = self.op
         A1 = self.liouv @ O0
-        b1 = np.sqrt((A1.T.conj() @ A1).data[0])
+        b1 = sqrt((A1.T.conj() @ A1).data[0])
         O1 = (1 / b1) * A1
         self.krylov_basis = [O0, O1]
         self.lanczos_coef = [b1]
 
         def lanczos_iteration(liouv, On2, On1, bn1, tol=1e-10):
             An = liouv @ On1 - bn1 * On2
-            bn = np.sqrt((An.T.conj() @ An).data[0])
-            if np.round(bn, 16) < tol:
+            bn = sqrt((An.T.conj() @ An).data[0])
+            if round(bn, 16) < tol:
                 return None, 0
             return (1 / bn) * An, bn
 
@@ -84,7 +85,7 @@ class Lanczos:
         end = 0
         O0 = self.op
         A1 = self.liouv @ O0
-        b1 = np.sqrt((A1.T.conj() @ A1).data[0])
+        b1 = sqrt((A1.T.conj() @ A1).data[0])
         O1 = (1 / b1) * A1
         self.krylov_basis = [O0, O1]
         self.lanczos_coef = [b1]
@@ -100,7 +101,7 @@ class Lanczos:
                     - (self.krylov_basis[i].T.conj() @ Aj).data[0]
                     * self.krylov_basis[i]
                 )
-            bj = np.round(np.sqrt((Aj.T.conj() @ Aj).data[0]), 16)
+            bj = round(sqrt((Aj.T.conj() @ Aj).data[0]), 16)
             if bj < tol:
                 print("Lanczos Algorithm terminated at a 0-vector")
                 break
@@ -120,14 +121,11 @@ class Lanczos:
             print("Lanczos coefficients must be computed!")
             return
         if self.L is None:
-            self.L = sp.sparse.diags([self.lanczos_coef, self.lanczos_coef], [1, -1])
+            self.L = diags([self.lanczos_coef, self.lanczos_coef], [1, -1])
         if self.e0 is None:
             self.e0 = basis_vec(self.L.shape[0], 0)
-        return np.array(
-            [
-                self.e0 @ (sp.sparse.linalg.expm_multiply(1j * self.L * t, self.e0))
-                for t in times
-            ]
+        return array(
+            [self.e0 @ (expm_multiply(1j * self.L * t, self.e0)) for t in times]
         )
 
     def auto_correlation_ED(self, times):
@@ -135,11 +133,8 @@ class Lanczos:
         Uses Scipy sparse matrix techniques to compute the autocorrelation. Recomputes the exponential
         for each timestep desired, minimizing integration error, but increasing computation time.
         """
-        return np.array(
-            [
-                self.op @ sp.sparse.linalg.expm_multiply(-1j * self.liouv * t, self.op)
-                for t in times
-            ]
+        return array(
+            [self.op @ expm_multiply(-1j * self.liouv * t, self.op) for t in times]
         )
 
     def auto_correlation_ED_fast(self, times):
@@ -149,7 +144,7 @@ class Lanczos:
         the timestep, for some reason.
         """
         return (
-            sp.sparse.linalg.expm_multiply(
+            expm_multiply(
                 -1j * self.liouv,
                 self.op,
                 start=times[0],
@@ -169,20 +164,25 @@ class Lanczos:
             print("Lanczos coefficients must be computed!")
             return
         n = len(self.krylov_basis)
-        orth_test = np.array(
+        orth_test = array(
             [
-                [self.krylov_basis[i].conj() @ self.krylov_basis[j] for i in range(n)]
+                [
+                    (self.krylov_basis[i].T.conj() @ self.krylov_basis[j]).data[0]
+                    for i in range(n)
+                ]
                 for j in range(n)
             ]
         )
-        ax = sb.heatmap(np.real(orth_test))
+        ax = sb.heatmap(real(orth_test))
         ax.invert_yaxis()
         plt.xlabel("index 1")
         plt.ylabel("index 2")
         plt.title("Krylov Orthogonality test")
         plt.show()
 
-    def tight_binding_complexity(self, start, end, max_step=0.01, plot=True):
+    def tight_binding_complexity(
+        self, start, end, max_step=0.01, upper_limit=20, plot=True
+    ):
         r"""
         Solves the tight binding model seeded from the lanczos coefficients. This should be
         equivalent to computing the evolution of the initial operator in the Krylov basis,
@@ -192,8 +192,8 @@ class Lanczos:
             print("Lanczos coefficients must be computed!")
             return
         if self.B is None:
-            self.B = sp.sparse.diags(
-                [-1 * np.array(self.lanczos_coef), np.array(self.lanczos_coef)], [1, -1]
+            self.B = diags(
+                [-1 * array(self.lanczos_coef), array(self.lanczos_coef)], [1, -1]
             )
         if self.e0 is None:
             self.e0 = basis_vec(self.L.shape[0], 0)
@@ -212,7 +212,7 @@ class Lanczos:
             )
             ax.set_title("Tight-Binding Evolution")
             # set the limits of the plot to the limits of the data
-            ax.axis([0, self.tbc_vals["t"][-1], 0, 20])
+            ax.axis([0, self.tbc_vals["t"][-1], 0, upper_limit])
             ax.set_ylabel("Complexity")
             ax.set_xlabel("Time")
             fig.colorbar(c, ax=ax)
@@ -229,10 +229,7 @@ class Lanczos:
             print("Solve the semi-infinite tight-binding model first")
             return
         self.k_complexity = [
-            np.sum(
-                (np.arange(0, self.B.shape[0], 1))
-                * abs(self.tbc_vals["y"][:, idx]) ** 2
-            )
+            sum((arange(0, self.B.shape[0], 1)) * abs(self.tbc_vals["y"][:, idx]) ** 2)
             for idx in range(len(self.tbc_vals["t"]))
         ]
 

@@ -2,6 +2,20 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import nmrglue as ng
 import numpy as np
+from numpy import (
+    imag,
+    real,
+    argmax,
+    meshgrid,
+    array,
+    argmin,
+    arange,
+    polyfit,
+    log,
+    exp,
+    pi,
+    pad,
+)
 from scipy.interpolate import CubicSpline
 from scipy.fft import fft, fftfreq, fftshift
 from scipy.signal import find_peaks
@@ -29,11 +43,13 @@ class Experiment:
         self.nmr_dic, self.nmr_data = ng.fileio.bruker.read(self.file)
         self.td = self.nmr_data.shape
 
-    def calibrate90(self,use_imag=True):
+    def calibrate90(self, use_imag=True):
         if len(self.td) != 3:
             raise ValueError("Invalid Experiment shape for pulse calibration")
-        
-        vals = np.imag(self.nmr_data[:, :, 0]) if use_imag else np.real(self.nmr_data[:, :, 0])
+
+        vals = (
+            imag(self.nmr_data[:, :, 0]) if use_imag else real(self.nmr_data[:, :, 0])
+        )
         plt.plot(vals[0], label="1 wrap")
         plt.plot(vals[1], label="2 wraps")
         plt.plot(vals[2], label="3 wraps")
@@ -48,15 +64,17 @@ class Experiment:
         plt.xlabel("Power List Index")
         plt.show()
 
-        print("array index of max signal is " + str(np.argmax(high_contrast)))
+        print("array index of max signal is " + str(argmax(high_contrast)))
 
-    def calibrate_framechange(self, phase_inc=1, offset=0,use_real=True):
-        signal = np.real(self.nmr_data[:, :, 0]) if use_real else np.imag(self.nmr_data[:, :, 0])
+    def calibrate_framechange(self, phase_inc=1, offset=0, use_real=True):
+        signal = (
+            real(self.nmr_data[:, :, 0]) if use_real else imag(self.nmr_data[:, :, 0])
+        )
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
-        x, y = np.meshgrid(
-            range(offset, phase_inc * (signal.shape[0])+offset, phase_inc),
+        x, y = meshgrid(
+            range(offset, phase_inc * (signal.shape[0]) + offset, phase_inc),
             range(signal.shape[1]),
         )
         c = ax.plot_wireframe(x, y, signal.transpose())
@@ -67,10 +85,10 @@ class Experiment:
         plt.show()
 
         norms = [sum(abs(signal[k, :])) for k in range(self.td[0])]
-        phases = np.array(range(offset, phase_inc * (signal.shape[0])+offset, phase_inc))
+        phases = array(range(offset, phase_inc * (signal.shape[0]) + offset, phase_inc))
         plt.scatter(phases, norms)
         cs = CubicSpline(phases, norms)
-        xs = np.arange(phases[0], phases[-1], phase_inc / 50)
+        xs = arange(phases[0], phases[-1], phase_inc / 50)
         plt.plot(xs, cs(xs), "g", label="Cubic Spline")
 
         plt.xlabel("Frame Change Offset")
@@ -78,12 +96,12 @@ class Experiment:
         plt.ylabel("(Absolute) Deviation from Ideal")
         plt.show()
 
-        overrot_angle = phase_inc * (np.argmin(norms))
+        overrot_angle = phase_inc * (argmin(norms))
         print("Over-rotation angle is given by " + str(overrot_angle) + " deg.")
 
     def fid(self, add_spline=True, normalize=False, title="FID"):
-        vals_real = np.real(self.nmr_data)
-        vals_imag = np.imag(self.nmr_data)
+        vals_real = real(self.nmr_data)
+        vals_imag = imag(self.nmr_data)
 
         if normalize:
             vals_real = vals_real / vals_real[0]
@@ -93,7 +111,7 @@ class Experiment:
         t_imag = [20 + (2 * i + 1) * 3.350 for i in range(len(vals_imag))]
 
         if add_spline:
-            xs = np.arange(t_real[0], t_imag[-1], 1)
+            xs = arange(t_real[0], t_imag[-1], 1)
 
             cs_real = CubicSpline(t_real, vals_real)
             plt.plot(xs, cs_real(xs), color="b", label="Real Spline")
@@ -117,7 +135,7 @@ class Experiment:
         return vals_real, vals_imag
 
     def offset_cal(self, use_spline=False, pad_factor=2, width=5e4):
-        signal = np.pad(self.nmr_data, (0, (2**pad_factor - 1) * len(self.nmr_data)))
+        signal = pad(self.nmr_data, (0, (2**pad_factor - 1) * len(self.nmr_data)))
 
         t_real = [2 * i * 3.350 for i in range(len(signal))]
         t_imag = [(2 * i + 1) * 3.350 for i in range(len(signal))]
@@ -128,9 +146,9 @@ class Experiment:
         if use_spline:
             dt = 10**-2
 
-            xs = np.arange(t0, tf, dt)
-            cs_real = CubicSpline(t_real, np.real(signal))
-            cs_imag = CubicSpline(t_imag, np.imag(signal))
+            xs = arange(t0, tf, dt)
+            cs_real = CubicSpline(t_real, real(signal))
+            cs_imag = CubicSpline(t_imag, imag(signal))
 
             smooth_signal = cs_real(xs) + 1j * cs_imag(xs)
 
@@ -173,20 +191,16 @@ class Experiment:
     ):
         t_list = list(range(0, self.td[0] * cycle, cycle))
         if not dipolar:
-            vals = (
-                np.real(self.nmr_data[:, 0])
-                if use_real
-                else np.imag(self.nmr_data[:, 0])
-            )
+            vals = real(self.nmr_data[:, 0]) if use_real else imag(self.nmr_data[:, 0])
         else:
-            vals = np.imag(self.nmr_data[:, 1])
+            vals = imag(self.nmr_data[:, 1])
 
         if normalize:
             vals = vals / vals[0]
 
         if add_spline:
             cs = CubicSpline(t_list, vals)
-            xs = np.arange(t_list[0], t_list[-1], cycle / 100)
+            xs = arange(t_list[0], t_list[-1], cycle / 100)
             plt.plot(xs, cs(xs), "g", label="Cubic Spline")
         plt.scatter(t_list, vals, marker="o", label="data")
         plt.xlabel("Evolution time (us)")
@@ -199,13 +213,9 @@ class Experiment:
 
     def load_tpc(self, use_real=True, dipolar=False, normalize=True):
         if not dipolar:
-            vals = (
-                np.real(self.nmr_data[:, 0])
-                if use_real
-                else np.imag(self.nmr_data[:, 0])
-            )
+            vals = real(self.nmr_data[:, 0]) if use_real else imag(self.nmr_data[:, 0])
         else:
-            vals = np.imag(self.nmr_data[:, 1])
+            vals = imag(self.nmr_data[:, 1])
 
         if normalize:
             vals = vals / vals[0]
@@ -215,12 +225,12 @@ class Experiment:
     def load_tpc3d(self, use_real=True, dipolar=False, normalize=True):
         if not dipolar:
             vals = (
-                np.real(self.nmr_data[:, :, 0])
+                real(self.nmr_data[:, :, 0])
                 if use_real
-                else np.imag(self.nmr_data[:, :, 0])
+                else imag(self.nmr_data[:, :, 0])
             )
         else:
-            vals = np.imag(self.nmr_data[:, :, 1])
+            vals = imag(self.nmr_data[:, :, 1])
 
         # normalize signal
         if normalize:
@@ -228,11 +238,11 @@ class Experiment:
                 vals[idx] = expt / max(expt)
         return vals
 
-    def mqc(self, enc_td2=True,cycle=24*5,use_real=True):
+    def mqc(self, enc_td2=True, cycle=24 * 5, use_real=True):
         if use_real:
-            Smt = np.real(self.nmr_data[:, :, 0])
+            Smt = real(self.nmr_data[:, :, 0])
         else:
-            Smt = np.imag(self.nmr_data[:, :, 0])
+            Smt = imag(self.nmr_data[:, :, 0])
 
         if enc_td2:
             td1 = self.td[0]
@@ -247,12 +257,12 @@ class Experiment:
 
         t_list = [n * cycle for n in range(td1)]
         M = int(td2 / 2)
-        p = np.polyfit(t_list, np.log(fidelity), 1)
-        tau_half = -np.log(2) / p[0]
+        p = polyfit(t_list, log(fidelity), 1)
+        tau_half = -log(2) / p[0]
         plt.scatter(t_list, fidelity, marker="x", label="Data")
         plt.plot(
             t_list,
-            [np.exp(p[0] * t + p[1]) for t in t_list],
+            [exp(p[0] * t + p[1]) for t in t_list],
             "g",
             label="Exponential Fit",
         )
@@ -269,24 +279,21 @@ class Experiment:
             + " cycles."
         )
 
-        Iqt = np.array(
+        Iqt = array(
             [
                 (1 / (2 * M))
                 * sum(
-                    [
-                        np.exp(1j * q * idx * (np.pi / M)) * val
-                        for idx, val in enumerate(mat)
-                    ]
+                    [exp(1j * q * idx * (pi / M)) * val for idx, val in enumerate(mat)]
                 )
                 for q in range(M + 1)
             ]
         )
 
-        mqc = np.abs(Iqt)
+        mqc = abs(Iqt)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
-        x, y = np.meshgrid(range(mqc.shape[0]), range(mqc.shape[1]))
+        x, y = meshgrid(range(mqc.shape[0]), range(mqc.shape[1]))
         c = ax.plot_wireframe(x, y, mqc.transpose())
         ax.set_title("MQC with M=" + str(M) + " encoding cycles")
         # set the limits of the plot to the limits of the data
@@ -315,9 +322,9 @@ class Experiment:
         otoc = sum([(q**2) * intensity for q, intensity in enumerate(Iqt)])
         normalizer = fidelity
 
-        vals = [np.abs(val / norm) for val, norm in zip(otoc, normalizer)]
+        vals = [abs(val / norm) for val, norm in zip(otoc, normalizer)]
         cs = CubicSpline(t_list, vals)
-        xs = np.arange(t_list[0], t_list[-1], 1)
+        xs = arange(t_list[0], t_list[-1], 1)
         plt.scatter(
             t_list,
             vals,

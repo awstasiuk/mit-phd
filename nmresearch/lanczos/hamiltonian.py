@@ -1,7 +1,6 @@
-import scipy as sp
-from random import random, seed
-from numpy.random import normal
-import numpy as np
+from scipy.sparse import csr_matrix
+from random import random
+from numpy import complex128
 
 from nmresearch.lanczos.op_basis import PauliMatrix, superop2pauli_liouville
 from nmresearch.lanczos.utils import super_ham
@@ -22,7 +21,7 @@ class Hamiltonian:
 
         L = self.sites
         if self.ham is None:
-            self.ham = sp.sparse.csr_matrix((2**L, 2**L), dtype=np.complex128)
+            self.ham = csr_matrix((2**L, 2**L), dtype=complex128)
         for i in range(1, L):
             self.ham = self.ham + A[i - 1] * (
                 self.paulis.sigmaX(0) @ self.paulis.sigmaX(i)
@@ -42,11 +41,11 @@ class Hamiltonian:
         for i in range(1, L):
             for j in range(1, i):
                 self.ham = self.ham + J[i - 1][j - 1] * (
-                    self.paulis.sigmaZ(i) @ self.paulis.sigmaZ(j)
+                    self.paulis.sigmaY(i) @ self.paulis.sigmaY(j)
                     - 0.5
                     * (
                         self.paulis.sigmaX(i) @ self.paulis.sigmaX(j)
-                        + self.paulis.sigmaY(i) @ self.paulis.sigmaY(j)
+                        + self.paulis.sigmaZ(i) @ self.paulis.sigmaZ(j)
                     )
                 )
 

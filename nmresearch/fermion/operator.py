@@ -1,10 +1,22 @@
 from nmresearch.fermion.math import Math as fm
 
-import numpy as np
-from scipy import linalg as la
+from numpy import (
+    zeros,
+    sqrt,
+    array,
+    block,
+    conjugate,
+    identity,
+    ndenumerate,
+    conj,
+    diagonal,
+    allclose,
+    ones,
+    diag,
+)
+from scipy.linalg import eigh
 from math import e, pi
-import itertools
-import tensorflow as tf
+from tensorflow import constant, complex128, einsum, eye
 
 
 class Operator:
@@ -22,7 +34,7 @@ class Operator:
         else:
             self._coef = {
                 0: 0,
-                2: np.zeros((2 * n_fermion, 2 * n_fermion)),
+                2: zeros((2 * n_fermion, 2 * n_fermion)),
             }
         self._components = list(self._coef.keys())
         self._order = max(self._components)
@@ -34,17 +46,17 @@ class Operator:
         Hamiltonians with periodic boundary conditions.
         """
         n = self.n_fermion
-        isqN = 1 / np.sqrt(n)
+        isqN = 1 / sqrt(n)
 
         momenta = [(k - (n - 1) / 2) for k in range(n)]
-        f = np.array(
+        f = array(
             [
                 [isqN * e ** (2j * pi * q * (i + 1) / n) for q in momenta]
                 for i in range(n)
             ]
         )
 
-        F = np.block([[f, np.zeros((n, n))], [np.zeros((n, n)), np.conjugate(f)]])
+        F = block([[f, zeros((n, n))], [zeros((n, n)), conjugate(f)]])
         coef = {}
         for k in self.components:
             if k == 0:
@@ -60,12 +72,10 @@ class Operator:
         Returns the adjoint of the operator.
         """
         n = self.n_fermion
-        SWAP = np.block(
-            [[np.zeros((n, n)), np.identity(n)], [np.identity(n), np.zeros((n, n))]]
-        )
+        SWAP = block([[zeros((n, n)), identity(n)], [identity(n), zeros((n, n))]])
         new_coef = {}
         for k in self.components:
-            new_coef[k] = np.conjugate(
+            new_coef[k] = conjugate(
                 fm.tensor_change_of_basis(self.coef[k], SWAP, reversed=True)
             )
         return Operator(n, new_coef)
@@ -94,8 +104,8 @@ class Operator:
         if 4 in self.components:
             mat = self.coef[4]
             n = self.n_fermion
-            new = np.zeros(mat.shape, dtype=np.complex)
-            for idx, val in np.ndenumerate(mat):
+            new = zeros(mat.shape, dtype=complex)
+            for idx, val in ndenumerate(mat):
                 if val != 0 and not Operator._is_zero(idx):
                     # normal order the 4 body term, keeping track of swaps
                     old = list(idx)
@@ -176,16 +186,16 @@ class Operator:
         mat = (alpha - beta) @ (alpha + beta)
 
         # diagonalize and extract the correctly ordered operators
-        sqr_eig, phi = la.eigh(mat)
-        psi = [(1 / np.sqrt(sqr_eig[i])) * (alpha - beta) @ phi[:, i] for i in range(n)]
-        psi = np.array(psi)
+        sqr_eig, phi = eigh(mat)
+        psi = [(1 / sqrt(sqr_eig[i])) * (alpha - beta) @ phi[:, i] for i in range(n)]
+        psi = array(psi)
         phi = phi.T
 
         # form the diagonalizing matrix, and the resulting diagonal operator.
         G = 0.5 * (phi + psi)
         H = 0.5 * (phi - psi)
-        T = np.block([[G, H], [np.conj(H), np.conj(G)]])
-        return Operator.disorder_Z(n, -0.5 * np.sqrt(sqr_eig)), T
+        T = block([[G, H], [conj(H), conj(G)]])
+        return Operator.disorder_Z(n, -0.5 * sqrt(sqr_eig)), T
 
     def trace(self):
         r"""
@@ -198,8 +208,8 @@ class Operator:
 
         if 2 in self.components:
             tr += 0.5 * (
-                np.sum(np.diagonal(self.coef[2], self.n_fermion))
-                + np.sum(np.diagonal(self.coef[2], -self.n_fermion))
+                sum(diagonal(self.coef[2], self.n_fermion))
+                + sum(diagonal(self.coef[2], -self.n_fermion))
             )
 
         if 4 in self.components:
@@ -222,8 +232,8 @@ class Operator:
 
         tr += alph**2
         tr += alph * (
-            np.sum(np.diagonal(self.coef[2], self.n_fermion))
-            + np.sum(np.diagonal(self.coef[2], -self.n_fermion))
+            sum(diagonal(self.coef[2], self.n_fermion))
+            + sum(diagonal(self.coef[2], -self.n_fermion))
         )
         tr += sum(
             w * self.coef[2][idx[0:2]] * self.coef[2][idx[2:4]]
@@ -253,18 +263,12 @@ class Operator:
         tr += (
             0.5
             * alpha
-            * (
-                np.sum(np.diagonal(other.coef[2], n))
-                + np.sum(np.diagonal(other.coef[2], -n))
-            )
+            * (sum(diagonal(other.coef[2], n)) + sum(diagonal(other.coef[2], -n)))
         )
         tr += (
             0.5
             * beta
-            * (
-                np.sum(np.diagonal(self.coef[2], n))
-                + np.sum(np.diagonal(self.coef[2], -n))
-            )
+            * (sum(diagonal(self.coef[2], n)) + sum(diagonal(self.coef[2], -n)))
         )
         tr += sum(
             w * self.coef[2][idx[0:2]] * other.coef[2][idx[2:4]]
@@ -284,53 +288,53 @@ class Operator:
         if use_speedup and self.is_quadratic and other.is_quadratic:
             self.normal_order()
             other.normal_order()
-            comm = np.zeros((2 * self.n_fermion, 2 * self.n_fermion), dtype=np.complex)
+            comm = zeros((2 * self.n_fermion, 2 * self.n_fermion), dtype=complex128)
 
-            aa1 = tf.constant(self.coef[2][0:n, 0:n], dtype=tf.complex128)
-            ca1 = tf.constant(self.coef[2][n : 2 * n, 0:n], dtype=tf.complex128)
-            cc1 = tf.constant(self.coef[2][n : 2 * n, n : 2 * n], dtype=tf.complex128)
+            aa1 = constant(self.coef[2][0:n, 0:n], dtype=complex128)
+            ca1 = constant(self.coef[2][n : 2 * n, 0:n], dtype=complex128)
+            cc1 = constant(self.coef[2][n : 2 * n, n : 2 * n], dtype=complex128)
 
-            aa2 = tf.constant(other.coef[2][0:n, 0:n], dtype=tf.complex128)
-            ca2 = tf.constant(other.coef[2][n : 2 * n, 0:n], dtype=tf.complex128)
-            cc2 = tf.constant(other.coef[2][n : 2 * n, n : 2 * n], dtype=tf.complex128)
+            aa2 = constant(other.coef[2][0:n, 0:n], dtype=complex128)
+            ca2 = constant(other.coef[2][n : 2 * n, 0:n], dtype=complex128)
+            cc2 = constant(other.coef[2][n : 2 * n, n : 2 * n], dtype=complex128)
 
-            delta = tf.eye(n, dtype=tf.complex128)
+            delta = eye(n, dtype=complex128)
 
-            aa3 = tf.einsum("ij,kl,li", ca1, aa2, delta) - tf.einsum(
+            aa3 = einsum("ij,kl,li", ca1, aa2, delta) - einsum(
                 "ij,kl,ki", ca1, aa2, delta
             )
 
-            aa3 += -tf.einsum("kl,ij,li", aa1, ca2, delta) + tf.einsum(
+            aa3 += -einsum("kl,ij,li", aa1, ca2, delta) + einsum(
                 "kl,ij,ki", aa1, ca2, delta
             )
 
-            cc3 = tf.einsum("ij,kl,li", cc1, ca2, delta) - tf.einsum(
+            cc3 = einsum("ij,kl,li", cc1, ca2, delta) - einsum(
                 "ij,kl,lj", cc1, ca2, delta
             )
-            cc3 += -tf.einsum("kl,ij,li", ca1, cc2, delta) + tf.einsum(
+            cc3 += -einsum("kl,ij,li", ca1, cc2, delta) + einsum(
                 "kl,ij,lj", ca1, cc2, delta
             )
 
             ca3 = (
-                -tf.einsum("kl,ij,li", aa1, cc2, delta)
-                + tf.einsum("kl,ij,ki", aa1, cc2, delta)
-                + tf.einsum("kl,ij,lj", aa1, cc2, delta)
-                - tf.einsum("kl,ij,kj", aa1, cc2, delta)
+                -einsum("kl,ij,li", aa1, cc2, delta)
+                + einsum("kl,ij,ki", aa1, cc2, delta)
+                + einsum("kl,ij,lj", aa1, cc2, delta)
+                - einsum("kl,ij,kj", aa1, cc2, delta)
             )
             ca3 += (
-                tf.einsum("ij,kl,li", cc1, aa2, delta)
-                - tf.einsum("ij,kl,ki", cc1, aa2, delta)
-                - tf.einsum("ij,kl,lj", cc1, aa2, delta)
-                + tf.einsum("ij,kl,kj", cc1, aa2, delta)
+                einsum("ij,kl,li", cc1, aa2, delta)
+                - einsum("ij,kl,ki", cc1, aa2, delta)
+                - einsum("ij,kl,lj", cc1, aa2, delta)
+                + einsum("ij,kl,kj", cc1, aa2, delta)
             )
-            ca3 += tf.einsum("ij,kl,jk", ca1, ca2, delta) - tf.einsum(
+            ca3 += einsum("ij,kl,jk", ca1, ca2, delta) - einsum(
                 "ij,kl,li->kj", ca1, ca2, delta
             )
 
-            id_term = -tf.einsum("ij,kl,li,kj", cc1, aa2, delta, delta) + tf.einsum(
+            id_term = -einsum("ij,kl,li,kj", cc1, aa2, delta, delta) + einsum(
                 "ij,kl,ki,lj", cc1, aa2, delta, delta
             )
-            id_term += tf.einsum("kl,ij,li,kj", aa1, cc2, delta, delta) - tf.einsum(
+            id_term += einsum("kl,ij,li,kj", aa1, cc2, delta, delta) - einsum(
                 "kl,ij,ki,lj", aa1, cc2, delta, delta
             )
 
@@ -354,7 +358,7 @@ class Operator:
         terms.
         """
         for order, mat in self.coef.items():
-            if order not in (0, 2) and not np.allclose(mat, 0):
+            if order not in (0, 2) and not allclose(mat, 0):
                 return False
         return True
 
@@ -362,7 +366,7 @@ class Operator:
         ords = self.components
         for n in ords:
             temp = fm.chop(self.coef[n], delta=tol)
-            if np.allclose(temp, 0):
+            if allclose(temp, 0):
                 self.remove_component(n)
             else:
                 self.set_component(n, temp)
@@ -377,8 +381,8 @@ class Operator:
         data.
         """
         if tensor is None:
-            self._coef[order] = np.zeros(
-                [2 * self.n_fermion for i in range(order)], dtype=np.complex
+            self._coef[order] = zeros(
+                [2 * self.n_fermion for i in range(order)], dtype=complex
             )
         elif len(tensor.shape) == order and all(
             [tensor.shape[i] == 2 * self.n_fermion for i in range(order)]
@@ -436,36 +440,36 @@ class Operator:
         if shA[0] != shA[1] or shB[0] != shB[1]:
             raise ValueError("the matrices must be square")
 
-        q = Operator(n_fermion, {2: np.block([[B, -np.conj(A)], [A, -np.conj(B)]])})
+        q = Operator(n_fermion, {2: block([[B, -conj(A)], [A, -conj(B)]])})
         return q
 
     @staticmethod
     def creation_op(index, n_spin):
-        temp = np.zeros(2 * n_spin)
+        temp = zeros(2 * n_spin)
         temp[index + n_spin] = 1
         return Operator(n_spin, {1: temp})
 
     @staticmethod
     def annihilation_op(index, n_spin):
-        temp = np.zeros(2 * n_spin)
+        temp = zeros(2 * n_spin)
         temp[index] = 1
         return Operator(n_spin, {1: temp})
 
     @staticmethod
     def number_op(index, n_spin):
-        temp = np.zeros((2 * n_spin, 2 * n_spin))
+        temp = zeros((2 * n_spin, 2 * n_spin))
         temp[index + n_spin, index] = 1
         return Operator(n_spin, {2: temp})
 
     @staticmethod
     def global_Z(n_spin):
-        return Operator.disorder_Z(n_spin, np.ones(n_spin))
+        return Operator.disorder_Z(n_spin, ones(n_spin))
 
     @staticmethod
     def disorder_Z(n_spin, field):
         if len(field) is not n_spin:
             raise ValueError("vector of disorder must equal number of spins")
-        temp = np.zeros((2 * n_spin, 2 * n_spin))
+        temp = zeros((2 * n_spin, 2 * n_spin))
         for idx, B in enumerate(field):
             temp[idx, idx + n_spin] = B
             temp[idx + n_spin, idx] = -B
@@ -473,7 +477,7 @@ class Operator:
 
     @staticmethod
     def local_Z(index, n_spin):
-        temp = np.zeros((2 * n_spin, 2 * n_spin))
+        temp = zeros((2 * n_spin, 2 * n_spin))
         temp[index, index + n_spin] = 1
         temp[index + n_spin, index] = -1
         return Operator(n_spin, {2: temp})
@@ -490,11 +494,11 @@ class Operator:
         by setting `periodic` to `True`.
         """
         if hasattr(B, "__iter__"):
-            A = np.diag(B)
+            A = diag(B)
         else:
-            A = -B * np.identity(n_spin)
+            A = -B * identity(n_spin)
 
-        C = J * (np.diag(np.ones(n_spin - 1), 1) - np.diag(np.ones(n_spin - 1), -1))
+        C = J * (diag(ones(n_spin - 1), 1) - diag(ones(n_spin - 1), -1))
         if periodic:
             if n_spin % 2 == 0:
                 C[0, n_spin - 1] = J
@@ -516,10 +520,10 @@ class Operator:
         by setting `periodic` to `True`.
         """
         if hasattr(B, "__iter__"):
-            A = np.diag(B)
+            A = diag(B)
         else:
-            A = -B * np.identity(n_spin)
-        A += J * (np.diag(np.ones(n_spin - 1), 1) + np.diag(np.ones(n_spin - 1), -1))
+            A = -B * identity(n_spin)
+        A += J * (diag(ones(n_spin - 1), 1) + diag(ones(n_spin - 1), -1))
         if periodic:
             if n_spin % 2 == 0:
                 A[0, n_spin - 1] = J
@@ -528,7 +532,7 @@ class Operator:
                 A[0, n_spin - 1] = -J
                 A[n_spin - 1, 0] = J
 
-        return Operator.quadratic_form(A, np.zeros((n_spin, n_spin)))
+        return Operator.quadratic_form(A, zeros((n_spin, n_spin)))
 
     @staticmethod
     def generalXY(n_spin, u, v, B=0, J=1, periodic=False):
@@ -609,7 +613,7 @@ class Operator:
         if isinstance(other, Operator) and self.n_fermion == other.n_fermion:
             if self.components == other.components:
                 for r in self.components:
-                    if not np.allclose(self.coef[r], other.coef[r]):
+                    if not allclose(self.coef[r], other.coef[r]):
                         return False
                 return True
         return False
@@ -630,7 +634,7 @@ class Operator:
             if comp == 0 and mat != 0:
                 op.append(str(mat) + "*I")
             else:
-                for idx, val in np.ndenumerate(mat):
+                for idx, val in ndenumerate(mat):
                     if val != 0:
                         op.append(str(val) + "*" + self._ferm_string(idx))
         return "0" if len(op) == 0 else " + ".join(op)
