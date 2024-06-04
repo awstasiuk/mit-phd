@@ -89,18 +89,15 @@ class Lanczos:
         O0 = self.op.todense()
         L = self.liouv
         A1 = L @ O0
-        b1 = sqrt((A1.T.conj() @ A1)[0,0])
+        b1 = sqrt((A1.T.conj() @ A1)[0, 0])
         O1 = (1 / b1) * A1
         krylov_basis.append(O0)
         krylov_basis.append(O1)
         lanczos_coef.append(b1)
 
         for j in range(2, max_iter, 1):
-            Aj = (
-                L @ krylov_basis[j-1]
-                - lanczos_coef[j-2] * krylov_basis[j-2]
-            )
-            bj = round(sqrt((Aj.T.conj() @ Aj)[0,0]), 16)
+            Aj = L @ krylov_basis[j - 1] - lanczos_coef[j - 2] * krylov_basis[j - 2]
+            bj = round(sqrt((Aj.T.conj() @ Aj)[0, 0]), 16)
             if bj < tol:
                 print("Lanczos Algorithm terminated at a 0-vector")
                 break
@@ -129,24 +126,17 @@ class Lanczos:
         O0 = self.op.todense()
         L = self.liouv
         A1 = L @ O0
-        b1 = sqrt((A1.T.conj() @ A1)[0,0])
+        b1 = sqrt((A1.T.conj() @ A1)[0, 0])
         O1 = (1 / b1) * A1
         krylov_basis.append(O0)
         krylov_basis.append(O1)
         lanczos_coef.append(b1)
 
         for j in range(2, max_iter, 1):
-            Aj = (
-                L @ krylov_basis[j-1]
-                - lanczos_coef[j-2] * krylov_basis[j-2]
-            )
+            Aj = L @ krylov_basis[j - 1] - lanczos_coef[j - 2] * krylov_basis[j - 2]
             for i in range(j):
-                Aj = (
-                    Aj
-                    - (krylov_basis[i].T.conj() @ Aj)[0,0]
-                    * krylov_basis[i]
-                )
-            bj = round(sqrt((Aj.T.conj() @ Aj)[0,0]), 16)
+                Aj = Aj - (krylov_basis[i].T.conj() @ Aj)[0, 0] * krylov_basis[i]
+            bj = round(sqrt((Aj.T.conj() @ Aj)[0, 0]), 16)
             if bj < tol:
                 print("Lanczos Algorithm terminated at a 0-vector")
                 break
@@ -163,7 +153,7 @@ class Lanczos:
     def auto_correlation(self, times):
         r"""
         Uses the lanczos coefficients to compute the autocorrelation with help of Scipy to perform
-        the matrix exponentials in the Krylov space. This method appears to only compute a single propegator, 
+        the matrix exponentials in the Krylov space. This method appears to only compute a single propegator,
         and so its accuracy is dependent on the timestep, which can be pretty small since L should be fairly
         low dimension compared to the entire Hilbert space.
         """
@@ -261,6 +251,7 @@ class Lanczos:
             self.e0 = basis_vec(self.L.shape[0], 0)
 
         B = self.B
+
         def f(t, y):
             return B @ y
 
