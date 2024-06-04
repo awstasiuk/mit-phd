@@ -240,6 +240,28 @@ def vec(matrix: ndarray) -> ndarray:
     return matrix.T.reshape((-1, 1))
 
 
+def devec(matrix: ndarray) -> ndarray:
+    """
+    De-Vectorize, or "devec", a vector by undoing column stacking.
+
+    For example the 4 by 1 vector A::
+
+        |A>> := vec(A) = (a, c, b, d)^T
+
+    becomes::
+
+        A = [[a, b]
+             [c, d]]
+
+    where `|A>>` denotes the vec'ed version of A and :math:`^T` denotes transpose.
+
+    :param matrix: A N^2 (rows) by 1 (columns) numpy array.
+    :return: Returns a matrix of dimension N by N.
+    """
+    dim = int(sqrt(len(matrix)))
+    return matrix.reshape((dim, dim)).T
+
+
 def superop2pauli_liouville(superop: ndarray) -> ndarray:
     """
     Converts a superoperator into a pauli_liouville matrix.

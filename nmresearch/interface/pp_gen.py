@@ -493,6 +493,103 @@ class PulseProgram:
         return f"\n".join(str_list)
 
     @staticmethod
+    def disorder_fidelity_cal(fc, n_max=25):
+        r"""
+        ASHDJFHAJSDHFJSDF
+        """
+        # preliminaries
+        whh8 = [
+            [0, 180],
+            [90, 270],
+            [270, 90],
+            [180, 0],
+        ]
+
+        ph_prog_len = len(whh8)
+        ph_prog_depth = len(whh8[0])
+        n_pulses = ph_prog_depth * ph_prog_len
+
+        # generate the frame change shifts for a single phase program of the right shape
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        glb_ph = 0
+
+        # begin chaos
+
+        # state prep
+        ph0 = [90, 90, 270, 270, 0, 0, 180, 180]
+        glb_ph += fc
+
+        # whh1
+        fwd_shifted = [
+            [
+                (whh8[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * fc
+
+        # cycle
+        ph5 = [(ang + glb_ph) % 360 for ang in [0, 0, 180, 180, 270, 270, 90, 90]]
+        glb_ph += fc
+
+        #
+        # evolution would go here
+        #
+
+        # observable stuff
+        ph14 = [(ang + glb_ph) % 360 for ang in [0, 0, 0, 0, 0, 0, 0, 0]]
+        glb_ph += fc
+
+        # whh2
+        bwd_shifted = [
+            [
+                (whh8[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * fc
+
+        # recovery
+        ph19 = [
+            (ang + glb_ph) % 360 for ang in [270, 270, 270, 270, 270, 270, 270, 270]
+        ]
+
+        str_list = []
+
+        str_list.append("25m ip" + str(5) + "*" + str((n_pulses * fc) % 360))
+        for i in range(14, 19, 1):
+            str_list.append("25m ip" + str(i) + "*" + str((n_pulses * fc) % 360))
+        str_list.append("25m ip" + str(19) + "*" + str((2 * n_pulses * fc) % 360))
+
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(fwd_shifted[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(fwd_shifted[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(fwd_shifted[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(fwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        str_list.append("ph14 = (360) " + " ".join(to_str(ph14)))
+        str_list.append("")
+        str_list.append("ph15 = (360) " + " ".join(to_str(bwd_shifted[0])))
+        str_list.append("ph16 = (360) " + " ".join(to_str(bwd_shifted[1])))
+        str_list.append("ph17 = (360) " + " ".join(to_str(bwd_shifted[2])))
+        str_list.append("ph18 = (360) " + " ".join(to_str(bwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph19 = (360) " + " ".join(to_str(ph19)))
+        str_list.append("")
+
+        return f"\n".join(str_list)
+
+    @staticmethod
     def ken16_compiled_8_helper(init_phase, theta, fc, n_max, phi):
         r"""
         Ken16 phase programs written over 8 phase programs, allowing for more than 100

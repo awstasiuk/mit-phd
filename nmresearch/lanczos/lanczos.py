@@ -7,12 +7,13 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
 from nmresearch.lanczos.utils import basis_vec
+from nmresearch.lanczos.op_basis import vec, devec
 
 
 class Lanczos:
 
-    def __init__(self, liouville, op):
-        self.liouv = liouville
+    def __init__(self, propegator, op):
+        self.prop = propegator
         self.op = op
         self.krylov_basis = None
         self.lanczos_coef = None
@@ -22,59 +23,46 @@ class Lanczos:
         self.tbc_vals = None
         self.k_complexity = None
 
-    def compute_lanczos_old(self, max_iter=50, tol=1e-10):
-        r"""
-        Computes lanczos method up to `max_iter` steps or until the produced vector is null to within
-        tolerance `tol`. This method uses Gram-Schmidt to orthogonalize, and as such is numerically unstable
-        after a handful of iterations. The produced lanczos coefficients are still a good proxy for the
-        liovillian's action at time not too long, or operators which scramble too much. All orthogonalized
-        krylov vectors are stored, check their inner products for loss of orthogonality if interested in
-        checking on the numerical stability of the outcome.
-        """
+    def compute_lanczos_fast(self, use_ham=True, max_iter=50, tol=1e-10):
+        if use_ham:
+            self._compute_lanczos_fast_ham(max_iter=max_iter, tol=tol)
+        else:
+            self._compute_lanczos_fast_liouv(max_iter=max_iter, tol=tol)
+
+    def _compute_lanczos_fast_ham(self, max_iter, tol):
         start = timer()
         end = 0
+
+        krylov_basis = []
+        lanczos_coef = []
         O0 = self.op
-        A1 = self.liouv @ O0
-        b1 = sqrt((A1.T.conj() @ A1).data[0])
+        ham = self.prop
+        A1 = ham @ O0 - O0 @ ham
+        b1 = sqrt((vec(A1).T.conj() @ vec(A1)).data[0])
         O1 = (1 / b1) * A1
-        self.krylov_basis = [O0, O1]
-        self.lanczos_coef = [b1]
+        krylov_basis.append(O0)
+        krylov_basis.append(O1)
+        lanczos_coef.append(b1)
 
-        def lanczos_iteration(liouv, On2, On1, bn1, tol=1e-10):
-            An = liouv @ On1 - bn1 * On2
-            bn = sqrt((An.T.conj() @ An).data[0])
-            if round(bn, 16) < tol:
-                return None, 0
-            return (1 / bn) * An, bn
+        for j in range(2, max_iter, 1):
+            Aj = (ham @ krylov_basis[j - 1] - krylov_basis[j - 1] @ ham) - lanczos_coef[
+                j - 2
+            ] * krylov_basis[j - 2]
+            bj = round(sqrt((vec(Aj).T.conj() @ vec(Aj)).data[0]), 16)
+            if bj < tol:
+                print("Lanczos Algorithm terminated at a 0-vector")
+                break
 
-        def generate_next():
-            On, bn = lanczos_iteration(
-                self.liouv,
-                self.krylov_basis[-2],
-                self.krylov_basis[-1],
-                self.lanczos_coef[-1],
-            )
-            if On is not None:
-                self.krylov_basis.append(On)
-                self.lanczos_coef.append(bn)
-                return True
-            else:
-                return False
+            Oj = (1 / bj) * Aj
+            krylov_basis.append(Oj)
+            lanczos_coef.append(bj)
 
-        counter = 1
-        while counter < max_iter and generate_next():
-            counter += 1
-
+        self.lanczos_coef = lanczos_coef
+        self.krylov_basis = krylov_basis
         end = timer()
-        print(
-            "Computation took "
-            + str(end - start)
-            + " sec, after "
-            + str(counter)
-            + " iterations."
-        )
+        print("Computation took " + str(end - start) + " sec")
 
-    def compute_lanczos_fast(self, max_iter=50, tol=1e-10):
+    def _compute_lanczos_fast_liouv(self, max_iter=50, tol=1e-10):
         r"""
         Computes lanczos method up to `max_iter` steps or until the produced vector is null to within
         tolerance `tol`. This method uses modified Gram-Schmidt to orthogonalize. This method is stable,
@@ -87,7 +75,7 @@ class Lanczos:
         krylov_basis = []
         lanczos_coef = []
         O0 = self.op.todense()
-        L = self.liouv
+        L = self.prop
         A1 = L @ O0
         b1 = sqrt((A1.T.conj() @ A1)[0, 0])
         O1 = (1 / b1) * A1
@@ -124,7 +112,7 @@ class Lanczos:
         krylov_basis = []
         lanczos_coef = []
         O0 = self.op.todense()
-        L = self.liouv
+        L = self.prop
         A1 = L @ O0
         b1 = sqrt((A1.T.conj() @ A1)[0, 0])
         O1 = (1 / b1) * A1
@@ -183,7 +171,7 @@ class Lanczos:
         for each timestep desired, minimizing integration error, but increasing computation time.
         """
         return array(
-            [self.op @ expm_multiply(-1j * self.liouv * t, self.op) for t in times]
+            [self.op @ expm_multiply(-1j * self.prop * t, self.op) for t in times]
         )
 
     def auto_correlation_ED_fast(self, times):
@@ -194,7 +182,7 @@ class Lanczos:
         """
         return (
             expm_multiply(
-                -1j * self.liouv,
+                -1j * self.prop,
                 self.op,
                 start=times[0],
                 stop=times[-1],
