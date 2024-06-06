@@ -6,7 +6,7 @@ class Atom:
     A data structure class for describing an atom. It contains relevant species level
     information for an atomic nuclear spin. This class contains the spin dimension of
     the nuclear spin, `dim_s`, a descriptive name of the spin, `name`, and the
-    gyromagnetic ration of the spin, `gamma` given in units of rad/s/T. 
+    gyromagnetic ration of the spin, `gamma` given in units of rad/s/T.
 
     If there is more than one stable isotope with ppreciable abundance, `dim_s`, `name`,
     and `gamma` should be given lists, and `abundance` must be specified as a list of probabilities
@@ -51,6 +51,17 @@ class Atom:
     @property
     def abundance(self):
         return self._abundance if self.multi_species else [1]
+
+    def __key(self):
+        return (self.dim_s, self.gamma, self.name)
+
+    def __eq__(self, other):
+        if isinstance(other, Atom):
+            return self.__key() == other.__key()
+        return False
+
+    def __hash__(self):
+        return hash(self.__key())
 
 
 class AtomPos(Atom):

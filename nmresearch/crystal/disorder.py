@@ -7,7 +7,6 @@ from numpy import array
 from pickle import load, dump
 
 
-
 class Disorder:
     """
     This accepts an instance of a :type:`Crystal`, and is able compute statistical
@@ -22,18 +21,19 @@ class Disorder:
         self._homonuclear_double_network = {}
 
     @staticmethod
-    def heteronuclear_coupling(origin, source):
+    def heteronuclear_coupling(origin, source, bdir):
         """
         Compute the heteronuclear dipolar coupling strength for a pair of `Atom`s,
         `origin` and `source` assuming magnetic field is pointing in the z-direction
         """
         p1 = origin.position
         p2 = source.position
+        bdir = bdir / norm(bdir)
         hbar = 1.05457 * 10 ** (-34)  # J s / rad
         r = (p2 - p1) * 10 ** (-10)
         dx = norm(r)
         rhat = r / dx
-        cos = rhat[2]
+        cos = dot(-rhat, bdir)
         return (
             0.5
             * (10**-7)
@@ -44,8 +44,7 @@ class Disorder:
             / dx**3
         )
 
-    
-    def homonuclear_coupling(origin, source, bdir=[0, 0, 1]):
+    def homonuclear_coupling(origin, source, bdir):
         """
         Compute the dipolar coupling strength for a pair of `Atom`s in rad/s,
         `origin` and `source` where the direction of magnetic field is not necessarily aligned with z
@@ -60,13 +59,7 @@ class Disorder:
         rhat = r / dx
         cos = dot(-rhat, bdir)
         return (
-            0.5
-            * (1e-7)
-            * hbar
-            * origin.gamma
-            * source.gamma
-            * (1 - 3 * cos**2)
-            / dx**3
+            0.5 * (1e-7) * hbar * origin.gamma * source.gamma * (1 - 3 * cos**2) / dx**3
         )  # based on 1.34 in master thesis, eqn 7 in Cory
 
     def spin_diffusion_coeff(self, origin, bdir, a, shell_radius=-1):
@@ -79,11 +72,7 @@ class Disorder:
         D = 0
         F = (
             0.5
-            * (
-                2
-                * pi
-                / self.homonuclear_single_variance_estimate(origin, bdir, 5)
-            )
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
             ** 0.5
         )  # uniform F estimation
         if shell_radius == -1:
@@ -92,9 +81,7 @@ class Disorder:
         for atompos in lattice:
             d = norm(atompos.position - origin.position)
             if atompos.name == origin.name and not d <= 0.1:
-                bijsquared = (
-                    Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
-                )
+                bijsquared = Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
 
                 zijsquared = (
                     Disorder.dot_product(
@@ -122,9 +109,7 @@ class Disorder:
                 # Fij = self.diffusion_fij(origin, atompos, bdir)
                 D += bijsquared * zijsquared * Fij
 
-        return (
-            1 / 4 * D * 1e4
-        )  # in cm^2/s (need to divide by 2pi for radians?)
+        return 1 / 4 * D * 1e4  # in cm^2/s (need to divide by 2pi for radians?)
 
     def spin_diffusion_second_order(self, origin, bdir, a, shell_radius=-1):
         r"""
@@ -138,11 +123,7 @@ class Disorder:
         term3 = 0
         F = (
             0.5
-            * (
-                2
-                * pi
-                / self.homonuclear_single_variance_estimate(origin, bdir, 5)
-            )
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
             ** 0.5
         )
         if shell_radius == -1:
@@ -151,9 +132,7 @@ class Disorder:
         for atompos in lattice:
             d = norm(atompos.position - origin.position)
             if atompos.name == origin.name and not d <= 0.1:
-                bijsquared = (
-                    Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
-                )
+                bijsquared = Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
 
                 zijsquared = (
                     Disorder.dot_product(
@@ -177,11 +156,7 @@ class Disorder:
         bdir = bdir / norm(bdir)
         F = (
             0.5
-            * (
-                2
-                * pi
-                / self.homonuclear_single_variance_estimate(origin, bdir, 5)
-            )
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
             ** 0.5
         )
         # print(F)
@@ -214,11 +189,7 @@ class Disorder:
         bdir = bdir / norm(bdir)
         F = (
             0.5
-            * (
-                2
-                * pi
-                / self.homonuclear_single_variance_estimate(origin, bdir, 5)
-            )
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
             ** 0.5
         )
         # print(F)
@@ -253,12 +224,12 @@ class Disorder:
             + self.spin_diffusion_second_order(origin, bdir, a, 6)
         )
 
-    def get_network(self, origin):
+    def get_network(self, origin, bdir):
         if origin in self._network.keys():
             return self._network[origin]
-        return self.generate_network(origin)
+        return self.generate_network(origin, bdir)
 
-    def generate_network(self, origin):
+    def generate_network(self, origin, bdir):
         r"""
         Generates the network of heteronuclear couplings for the origin atom and the
         surrounding crystal structure which was used to instantiate this instance.
@@ -268,7 +239,7 @@ class Disorder:
         for atompos in lattice:
             if not atompos.name == origin.name:
                 atompos.coupling = Disorder.heteronuclear_coupling(
-                    origin, atompos
+                    origin, atompos, bdir
                 )
             network.append(atompos)
 
@@ -306,12 +277,8 @@ class Disorder:
     ):
         bdir = bdir / norm(bdir)
         if (origin_1, origin_2, bdir, plus) in self._network.keys():
-            return self._homonuclear_double_network[
-                (origin_1, origin_2, bdir, plus)
-            ]
-        return self.homonuclear_double_generate_network(
-            origin_1, origin_2, bdir, plus
-        )
+            return self._homonuclear_double_network[(origin_1, origin_2, bdir, plus)]
+        return self.homonuclear_double_generate_network(origin_1, origin_2, bdir, plus)
 
     def homonuclear_double_generate_network(
         self, origin_1, origin_2, bdir=[0, 0, 1], plus=False, shell_radius=-1
@@ -338,9 +305,7 @@ class Disorder:
                 ):
                     atompos.coupling = Disorder.homonuclear_coupling(
                         origin_1, atompos, bdir
-                    ) + a * Disorder.homonuclear_coupling(
-                        origin_2, atompos, bdir
-                    )
+                    ) + a * Disorder.homonuclear_coupling(origin_2, atompos, bdir)
                     network.append(atompos)
         return network
 
@@ -358,41 +323,32 @@ class Disorder:
             config.append(rng.integers(low=0, high=s) - (s - 1) / 2)
         return config
 
-    def mean_field_calc(self, origin, regen=False):
+    def mean_field_calc(self, origin, bdir, regen=False):
         """
         Calculate disorder contribution to the local field at a specific atom
         Randomized sum of discretized spin orientations times heteronuclear coupling strengths
         """
         if regen:
-            crystal = self.generate_network(origin)
+            crystal = self.generate_network(origin, bdir)
         else:
-            crystal = self.get_network(origin)
+            crystal = self.get_network(origin, bdir)
         config = Disorder.get_rand_config(crystal)
-        return sum(
-            [spin.coupling * orien for spin, orien in zip(crystal, config)]
-        )
+        return sum([spin.coupling * orien for spin, orien in zip(crystal, config)])
 
-    def double_mean_field_calc(
-        self, origin_1, origin_2, plus=False, regen=False
-    ):
+    def double_mean_field_calc(self, origin_1, origin_2, plus=False, regen=False):
         """
         Calculate sum or difference of disorder contribution to the local field at two specific atoms
         Randomized sum of discretized spin orientations times heteronuclear coupling strengths
         """
 
         if regen:
-            double_crystal = self.double_generate_network(
-                origin_1, origin_2, plus
-            )
+            double_crystal = self.double_generate_network(origin_1, origin_2, plus)
         else:
             double_crystal = self.double_get_network(origin_1, origin_2, plus)
 
         config = Disorder.get_rand_config(double_crystal)
         return sum(
-            [
-                spin.coupling * orien
-                for spin, orien in zip(double_crystal, config)
-            ]
+            [spin.coupling * orien for spin, orien in zip(double_crystal, config)]
         )
 
     def homonuclear_double_mean_field_calc(
@@ -414,24 +370,18 @@ class Disorder:
 
         config = Disorder.get_rand_config(double_crystal)
         return sum(
-            [
-                spin.coupling * orien * 2
-                for spin, orien in zip(double_crystal, config)
-            ]
+            [spin.coupling * orien * 2 for spin, orien in zip(double_crystal, config)]
         )
 
-    def variance_estimate(self, origin):
+    def variance_estimate(self, origin, bdir):
         """
         Gives variance of mean field calculated at origin according to uniformly distributed nuclear spins over spin dimension
         Computes variance only for one fixed isotope position
         (which is generated randomly from probabilities of each isotope at lattice site)
         """
-        crystal = self.get_network(origin)
+        crystal = self.get_network(origin, bdir)
         return sum(
-            [
-                ((spin.dim_s**2 - 1) / 12) * (spin.coupling**2)
-                for spin in crystal
-            ]
+            [((spin.dim_s**2 - 1) / 12) * (spin.coupling**2) for spin in crystal]
         )
 
     def double_variance_estimate(self, origin_1, origin_2, plus=False):
@@ -442,10 +392,7 @@ class Disorder:
         """
         crystal = self.double_generate_network(origin_1, origin_2, plus)
         return sum(
-            [
-                ((spin.dim_s**2 - 1) / 12) * (spin.coupling**2)
-                for spin in crystal
-            ]
+            [((spin.dim_s**2 - 1) / 12) * (spin.coupling**2) for spin in crystal]
         )
 
     def homonuclear_double_variance_estimate(
@@ -475,8 +422,7 @@ class Disorder:
             if atompos.name == origin.name:
                 if not norm(atompos.position - origin.position) <= 0.1:
                     variance += (
-                        Disorder.homonuclear_coupling(origin, atompos, bdir)
-                        ** 2
+                        Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
                     )
         return 2 * variance
 
@@ -488,10 +434,7 @@ class Disorder:
         fm = sum(
             [
                 (spin.dim_s**2 - 1)
-                * (
-                    (3 * spin.dim_s**2 - 7) / 240
-                    - (spin.dim_s**2 - 1) / 48
-                )
+                * ((3 * spin.dim_s**2 - 7) / 240 - (spin.dim_s**2 - 1) / 48)
                 * (spin.coupling**4)
                 for spin in crystal
             ]
@@ -499,7 +442,7 @@ class Disorder:
         return 3 + fm / self.variance_estimate(origin) ** 2
 
     def simulation(
-        self, origin, trials, filename="disorder_sim.dat", regen=False
+        self, origin, trials, bdir, filename="disorder_sim.dat", regen=False
     ):
         """
         Monte-carlo simulation of mean field at orig_atom
@@ -511,9 +454,9 @@ class Disorder:
             my_distro = load(open(filename, "rb"))
         except (OSError, IOError) as e:
             my_distro = zeros(trials)
-            crystal = self.get_network(origin)
+            crystal = self.get_network(origin, bdir)
             for idx in range(trials):
-                my_distro[idx] = self.mean_field_calc(origin, regen)
+                my_distro[idx] = self.mean_field_calc(origin, bdir, regen)
             with open(filename, "wb") as fi:
                 dump(my_distro, fi)
         return my_distro
@@ -580,14 +523,14 @@ class Disorder:
             with open(filename, "wb") as fil:
                 dump(my_distro_minus, fil)
         return my_distro_minus
-    
+
     def disorder_sum(self, origin, zeta=1):
         r"""
         Estimate the average disorder strength for dimensionless temperature zeta = beta*hbar*omega/2
         with linear approximation tanh(zeta)=zeta
         """
         crystal = self.get_network(origin)
-        return zeta*sum([spin.coupling for spin in crystal])
+        return zeta * sum([spin.coupling for spin in crystal])
 
     @property
     def crystal(self):
