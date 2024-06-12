@@ -277,6 +277,46 @@ class PulseProgram:
 
         return f"\n".join(str_list)
 
+    def wahuha8_pi(fc, n_max, xx=False):
+        whh8 = [
+            [0, 180],
+            [90, 270],
+            [270, 90],
+            [180, 180],
+        ]
+
+        ph_prog_len = len(whh8)
+        ph_prog_depth = len(whh8[0])
+
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        whh8_shifted = [
+            [
+                (whh8[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(whh8_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
+
     @staticmethod
     def peng24(fc, n_max=50, theta=0, xx=False):
         r"""
@@ -498,15 +538,14 @@ class PulseProgram:
         ASHDJFHAJSDHFJSDF
         """
         # preliminaries
-        whh8 = [
-            [0, 180],
-            [90, 270],
-            [270, 90],
-            [180, 0],
+        ken16 = [
+            [0, 0, 180, 180],
+            [90, 90, 270, 270],
+            [90, 90, 270, 270],
+            [0, 0, 180, 180],
         ]
-
-        ph_prog_len = len(whh8)
-        ph_prog_depth = len(whh8[0])
+        ph_prog_len = len(ken16)
+        ph_prog_depth = len(ken16[0])
         n_pulses = ph_prog_depth * ph_prog_len
 
         # generate the frame change shifts for a single phase program of the right shape
@@ -526,7 +565,7 @@ class PulseProgram:
         # whh1
         fwd_shifted = [
             [
-                (whh8[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
                 for idx, shift in enumerate(shifts[k])
             ]
             for k in range(ph_prog_len)
@@ -548,7 +587,7 @@ class PulseProgram:
         # whh2
         bwd_shifted = [
             [
-                (whh8[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
                 for idx, shift in enumerate(shifts[k])
             ]
             for k in range(ph_prog_len)

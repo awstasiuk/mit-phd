@@ -24,7 +24,7 @@ define delay cycle
 1   ze
 
 ; reset delay
-2   d1 rpp0 rpp1 rpp2 rpp3 rpp5 rpp5 rpp6 rpp7
+2   d1 rpp0 rpp1 rpp2 rpp3 rpp4 rpp5 rpp6 rpp7
     cycle pl2:f2
 
 ; Kicking + Ken16
