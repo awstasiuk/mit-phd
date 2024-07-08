@@ -1,4 +1,6 @@
 from numpy import log, zeros
+from numpy.random import normal, random
+from numpy.linalg import norm
 from scipy.sparse import kron, identity, kronsum
 
 
@@ -84,7 +86,7 @@ def binary_to_index(bin_str):
 
 
 def to_super(opA, opB):
-    return kron(opB, opA.T,format='csr')
+    return kron(opB, opA.T, format="csr")
 
 
 def super_ham(ham):
@@ -92,14 +94,28 @@ def super_ham(ham):
     This used to be `eye_array` but this version of scipy
     """
     dim = ham.shape[0]
-    id = identity(dim,format='coo')
+    id = identity(dim, format="coo")
     temp = ham.tocoo()
     return to_super(temp, id) - to_super(id, temp)
 
+
 def super_ham_alt(ham):
-    return kronsum(-1*ham, ham.T,format='csr')
+    return kronsum(-1 * ham, ham.T, format="csr")
+
 
 def basis_vec(dim, idx):
     vec = zeros(dim)
     vec[idx] = 1.0
     return vec
+
+
+def random_ball(num_points, dimension, radius=1):
+    # First generate random directions by normalizing the length of a
+    # vector of random-normal values (these distribute evenly on ball).
+    random_directions = normal(size=(dimension, num_points))
+    random_directions /= norm(random_directions, axis=0)
+    # Second generate a random radius with probability proportional to
+    # the surface area of a ball with a given radius.
+    random_radii = random(num_points) ** (1 / dimension)
+    # Return the list of random (direction & length) points.
+    return radius * (random_directions * random_radii).T

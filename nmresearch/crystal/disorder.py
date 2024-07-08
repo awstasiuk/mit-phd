@@ -111,119 +111,6 @@ class Disorder:
 
         return 1 / 4 * D * 1e4  # in cm^2/s (need to divide by 2pi for radians?)
 
-    def spin_diffusion_second_order(self, origin, bdir, a, shell_radius=-1):
-        r"""
-        Calculate second order contribution to spin diffusion coeff as given in Cory eqn 31
-        Assumes uniform F throughout
-        """
-        bdir = bdir / norm(bdir)
-        D2 = 0
-        term1 = 0
-        term2 = 0
-        term3 = 0
-        F = (
-            0.5
-            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
-            ** 0.5
-        )
-        if shell_radius == -1:
-            shell_radius = self.shell_radius
-        lattice = self.crystal.generate_lattice(shell_radius)
-        for atompos in lattice:
-            d = norm(atompos.position - origin.position)
-            if atompos.name == origin.name and not d <= 0.1:
-                bijsquared = Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
-
-                zijsquared = (
-                    Disorder.dot_product(
-                        (atompos.position - origin.position) * 1e-10, bdir
-                    )
-                    ** 2
-                )
-                term1 += bijsquared**2 * zijsquared
-                term2 += bijsquared
-                term3 += bijsquared * zijsquared
-
-                # Fij = self.diffusion_fij(origin, atompos, bdir)
-        D2 = F**3 / 48 * (2 * term1 - term2 * term3)
-
-        return D2 * 1e4  # (need to divide by 2pi for radians?)
-
-    def max_remainder(self, n, origin, bdir, a):
-        r"""
-        Upper bound on error to add to spin diffusion coefficient estimation (0th order) within n shells
-        """
-        bdir = bdir / norm(bdir)
-        F = (
-            0.5
-            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
-            ** 0.5
-        )
-        # print(F)
-        hbar = 1.05457 * 10 ** (-34)
-        return (
-            8
-            * 24
-            / 4
-            * 1e4
-            * (
-                1
-                / (2 * pi)
-                * 1
-                / n
-                * F
-                * hbar**2
-                * origin.gamma**4
-                * 4
-                * a**-4
-                * 1e40
-                * 1e-14
-                / (4)
-            )
-        )
-
-    def average_remainder(self, n, origin, bdir, a):
-        r"""
-        Averaged bound on error to add to spin diffusion coefficient estimation (0th order) within n shells using integration
-        """
-        bdir = bdir / norm(bdir)
-        F = (
-            0.5
-            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
-            ** 0.5
-        )
-        # print(F)
-        hbar = 1.05457 * 10 ** (-34)
-        return (
-            8
-            * 8
-            * 3
-            / 4
-            * 1e4
-            * (
-                1
-                / n
-                * F
-                * hbar**2
-                * origin.gamma**4
-                * 17
-                / 16  # 17/16 = <cos^2(1-3*cos^2)^2> (*35/8 for cos^1)
-                * a**-4
-                * 1e40
-                * 1e-14
-                / (4)  # (mu0/8pi)^2
-            )
-        )
-
-    def tot_estimated_spin_diffusion_coeff(self, origin, bdir, a):
-        # 3 level estimation on 0th order (variable Fij within 2 shells, constant F within 6 shells, integrated 7 shells and out)
-        # Added 2nd order contribution within 6 shells
-        return (
-            self.spin_diffusion_coeff(origin, bdir, a, 6)
-            + self.average_remainder(7, origin, bdir, a)
-            + self.spin_diffusion_second_order(origin, bdir, a, 6)
-        )
-
     def get_network(self, origin, bdir):
         if origin in self._network.keys():
             return self._network[origin]
@@ -531,6 +418,119 @@ class Disorder:
         """
         crystal = self.get_network(origin)
         return zeta * sum([spin.coupling for spin in crystal])
+
+    def max_remainder(self, n, origin, bdir, a):
+        r"""
+        Upper bound on error to add to spin diffusion coefficient estimation (0th order) within n shells
+        """
+        bdir = bdir / norm(bdir)
+        F = (
+            0.5
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
+            ** 0.5
+        )
+        # print(F)
+        hbar = 1.05457 * 10 ** (-34)
+        return (
+            8
+            * 24
+            / 4
+            * 1e4
+            * (
+                1
+                / (2 * pi)
+                * 1
+                / n
+                * F
+                * hbar**2
+                * origin.gamma**4
+                * 4
+                * a**-4
+                * 1e40
+                * 1e-14
+                / (4)
+            )
+        )
+
+    def average_remainder(self, n, origin, bdir, a):
+        r"""
+        Averaged bound on error to add to spin diffusion coefficient estimation (0th order) within n shells using integration
+        """
+        bdir = bdir / norm(bdir)
+        F = (
+            0.5
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
+            ** 0.5
+        )
+        # print(F)
+        hbar = 1.05457 * 10 ** (-34)
+        return (
+            8
+            * 8
+            * 3
+            / 4
+            * 1e4
+            * (
+                1
+                / n
+                * F
+                * hbar**2
+                * origin.gamma**4
+                * 17
+                / 16  # 17/16 = <cos^2(1-3*cos^2)^2> (*35/8 for cos^1)
+                * a**-4
+                * 1e40
+                * 1e-14
+                / (4)  # (mu0/8pi)^2
+            )
+        )
+
+    def spin_diffusion_second_order(self, origin, bdir, a, shell_radius=-1):
+        r"""
+        Calculate second order contribution to spin diffusion coeff as given in Cory eqn 31
+        Assumes uniform F throughout
+        """
+        bdir = bdir / norm(bdir)
+        D2 = 0
+        term1 = 0
+        term2 = 0
+        term3 = 0
+        F = (
+            0.5
+            * (2 * pi / self.homonuclear_single_variance_estimate(origin, bdir, 5))
+            ** 0.5
+        )
+        if shell_radius == -1:
+            shell_radius = self.shell_radius
+        lattice = self.crystal.generate_lattice(shell_radius)
+        for atompos in lattice:
+            d = norm(atompos.position - origin.position)
+            if atompos.name == origin.name and not d <= 0.1:
+                bijsquared = Disorder.homonuclear_coupling(origin, atompos, bdir) ** 2
+
+                zijsquared = (
+                    Disorder.dot_product(
+                        (atompos.position - origin.position) * 1e-10, bdir
+                    )
+                    ** 2
+                )
+                term1 += bijsquared**2 * zijsquared
+                term2 += bijsquared
+                term3 += bijsquared * zijsquared
+
+                # Fij = self.diffusion_fij(origin, atompos, bdir)
+        D2 = F**3 / 48 * (2 * term1 - term2 * term3)
+
+        return D2 * 1e4  # (need to divide by 2pi for radians?)
+
+    def tot_estimated_spin_diffusion_coeff(self, origin, bdir, a):
+        # 3 level estimation on 0th order (variable Fij within 2 shells, constant F within 6 shells, integrated 7 shells and out)
+        # Added 2nd order contribution within 6 shells
+        return (
+            self.spin_diffusion_coeff(origin, bdir, a, 6)
+            + self.average_remainder(7, origin, bdir, a)
+            + self.spin_diffusion_second_order(origin, bdir, a, 6)
+        )
 
     @property
     def crystal(self):

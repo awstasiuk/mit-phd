@@ -3,7 +3,7 @@ from random import random
 from numpy import complex128
 
 from nmresearch.lanczos.op_basis import PauliMatrix, superop2pauli_liouville
-from nmresearch.lanczos.utils import super_ham, super_ham_alt
+from nmresearch.lanczos.utils import super_ham, super_ham_alt, random_ball
 
 
 class Hamiltonian:
@@ -49,12 +49,15 @@ class Hamiltonian:
                 )
         self.ham = h
 
+    def H_dipolar_sphere(self, scrambling=False):
+        L = self.sites
+        P1_locations = random_ball(L - 1, 3, radius=1)
+
     def to_super(self):
         return super_ham(self.ham)
 
     def to_super_alt(self):
         return super_ham_alt(self.ham)
-
 
     def to_pauli_perm(self):
         return superop2pauli_liouville(self.to_super())

@@ -10,7 +10,7 @@ define delay delay1
 define delay delay2
 "delay2=(2*d20-p1)"
 
-"l1=1"
+"l1=2"
 
 1  ze
 
