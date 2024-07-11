@@ -1,4 +1,4 @@
-import numpy as np
+from numpy import array
 
 
 def to_str(lst):
@@ -154,7 +154,7 @@ class PulseProgram:
     @staticmethod
     def cory48(fc, n_max=50, xx=False):
         raw = (
-            np.array(
+            array(
                 [
                     [0, 0, 0, 3, 3, 3, 2, 2, 2, 1, 1, 1],
                     [1, 1, 3, 2, 2, 0, 1, 1, 3, 2, 2, 0],
@@ -277,6 +277,86 @@ class PulseProgram:
 
         return f"\n".join(str_list)
 
+    def wahuha8_pi(fc, n_max, xx=False):
+        whh8 = [
+            [0, 180],
+            [90, 270],
+            [270, 90],
+            [180, 180],
+        ]
+
+        ph_prog_len = len(whh8)
+        ph_prog_depth = len(whh8[0])
+
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        whh8_shifted = [
+            [
+                (whh8[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(whh8_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
+
+    def staber_pi(fc, n_max, xx=False):
+        staber = [
+            [0, 180, 0],
+            [90, 90, 90],
+            [180, 180, 0],
+            [270, 270, 90],
+        ]
+
+        ph_prog_len = len(staber)
+        ph_prog_depth = len(staber[0])
+
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        staber_shifted = [
+            [
+                (staber[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(staber_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
+
     @staticmethod
     def peng24(fc, n_max=50, theta=0, xx=False):
         r"""
@@ -359,6 +439,68 @@ class PulseProgram:
         return whh_fc, (whh_cycles * 8 * fc)
 
     @staticmethod
+    def disorder_fidelity(fc, n_max=25):
+        r"""
+        Generates the phase programs needed to measure disordered Zeeman states evolving
+        under the Ken16 with arbitrary Z(phi) and Ry(theta) kicking. See the pp
+        dtc_ken16_170_disZ_fc9 as an example.
+        """
+        glb_ph = 0
+
+        # first pulse
+        ph0 = [270, 90]
+        glb_ph += fc
+
+        # first wahuha sequence (ph1,ph2,ph3,ph4)
+        whh1, whh_ph1 = PulseProgram.wahuha_helper(glb_ph, fc, whh_cycles=n_max)
+        glb_ph += whh_ph1
+
+        # recovery x pulse
+        ph5 = [glb_ph % 360 for _ in range(2)]
+        ph5.extend([(180 + glb_ph) % 360 for _ in range(2)])
+        glb_ph += fc
+
+        # inv recovery x pulse
+        ph14 = [glb_ph % 360 for _ in range(4)]
+        ph14.extend([(180 + glb_ph) % 360 for _ in range(4)])
+        glb_ph += fc
+
+        # second wahuha sequence (ph15,ph16,ph17,ph18)
+        whh2, whh_ph2 = PulseProgram.wahuha_helper(glb_ph, fc, whh_cycles=n_max)
+        glb_ph += whh_ph2
+
+        # shelving pulse
+        ph19 = [(ang + glb_ph) % 360 for ang in [270, 270, 90, 90]]
+        glb_ph += fc
+
+        str_list = []
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(whh1[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(whh1[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(whh1[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(whh1[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        str_list.append("; evolution would go here")
+        str_list.append("")
+        str_list.append("ph14 = (360) " + " ".join(to_str(ph14)))
+        str_list.append("")
+        str_list.append("ph15 = (360) " + " ".join(to_str(whh2[0])))
+        str_list.append("ph16 = (360) " + " ".join(to_str(whh2[1])))
+        str_list.append("ph17 = (360) " + " ".join(to_str(whh2[2])))
+        str_list.append("ph18 = (360) " + " ".join(to_str(whh2[3])))
+        str_list.append("")
+        str_list.append("ph19 = (360) " + " ".join(to_str(ph19)))
+        str_list.append("")
+        str_list.append("ph20 = 0 2")
+        str_list.append("ph31 = 1 3 3 1 3 1 1 3")
+
+        return f"\n".join(str_list)
+
+    @staticmethod
     def dtc_dis_int(theta, fc, n_max=50):
         r"""
         Generates the phase programs needed to measure disordered Zeeman states evolving
@@ -427,6 +569,214 @@ class PulseProgram:
         str_list.append("")
         str_list.append("ph14 = 0 2 0 2")
         str_list.append("ph31 = 1 3 1 3 3 1 3 1 3 1 3 1 1 3 1 3")
+
+        return f"\n".join(str_list)
+
+    @staticmethod
+    def disorder_fidelity_cal(fc, n_max=25):
+        r"""
+        ASHDJFHAJSDHFJSDF
+        """
+        # preliminaries
+        ken16 = [
+            [0, 0, 180, 180],
+            [90, 90, 270, 270],
+            [90, 90, 270, 270],
+            [0, 0, 180, 180],
+        ]
+        ph_prog_len = len(ken16)
+        ph_prog_depth = len(ken16[0])
+        n_pulses = ph_prog_depth * ph_prog_len
+
+        # generate the frame change shifts for a single phase program of the right shape
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        glb_ph = 0
+
+        # begin chaos
+
+        # state prep
+        ph0 = [90, 90, 270, 270, 0, 0, 180, 180]
+        glb_ph += fc
+
+        # whh1
+        fwd_shifted = [
+            [
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * fc
+
+        # cycle
+        ph5 = [(ang + glb_ph) % 360 for ang in [0, 0, 180, 180, 270, 270, 90, 90]]
+        glb_ph += fc
+
+        #
+        # evolution would go here
+        #
+
+        # observable stuff
+        ph14 = [(ang + glb_ph) % 360 for ang in [0, 0, 0, 0, 0, 0, 0, 0]]
+        glb_ph += fc
+
+        # whh2
+        bwd_shifted = [
+            [
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * fc
+
+        # recovery
+        ph19 = [
+            (ang + glb_ph) % 360 for ang in [270, 270, 270, 270, 270, 270, 270, 270]
+        ]
+
+        str_list = []
+
+        str_list.append("25m ip" + str(5) + "*" + str((n_pulses * fc) % 360))
+        for i in range(14, 19, 1):
+            str_list.append("25m ip" + str(i) + "*" + str((n_pulses * fc) % 360))
+        str_list.append("25m ip" + str(19) + "*" + str((2 * n_pulses * fc) % 360))
+
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(fwd_shifted[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(fwd_shifted[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(fwd_shifted[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(fwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        str_list.append("ph14 = (360) " + " ".join(to_str(ph14)))
+        str_list.append("")
+        str_list.append("ph15 = (360) " + " ".join(to_str(bwd_shifted[0])))
+        str_list.append("ph16 = (360) " + " ".join(to_str(bwd_shifted[1])))
+        str_list.append("ph17 = (360) " + " ".join(to_str(bwd_shifted[2])))
+        str_list.append("ph18 = (360) " + " ".join(to_str(bwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph19 = (360) " + " ".join(to_str(ph19)))
+        str_list.append("")
+
+        return f"\n".join(str_list)
+
+    @staticmethod
+    def disorder_state_internal_evolution(fc, n_prep=4):
+        r"""
+        ASHDJFHAJSDHFJSDF
+        """
+        # preliminaries
+        ken16 = [
+            [0, 0, 180, 180],
+            [90, 90, 270, 270],
+            [90, 90, 270, 270],
+            [0, 0, 180, 180],
+        ]
+        ph_prog_len = len(ken16)
+        ph_prog_depth = len(ken16[0])
+        n_pulses = ph_prog_depth * ph_prog_len
+
+        # generate the frame change shifts for a single phase program of the right shape
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_prep * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        glb_ph = 0
+
+        # begin chaos
+
+        # state prep
+        ph0 = [90, 90, 270, 270, 0, 0, 180, 180]
+        glb_ph += fc
+
+        # whh1
+        fwd_shifted = [
+            [
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * n_prep * fc
+
+        # cycle
+        ph5 = [(ang + glb_ph) % 360 for ang in [0, 0, 180, 180, 270, 270, 90, 90]]
+        glb_ph += fc
+
+        #
+        # evolution is a loop over delays
+        #
+
+        # observable stuff
+        ph14 = [
+            (ang + glb_ph) % 360
+            for ang in [0, 0, 0, 0, 0, 0, 0, 0, 180, 180, 180, 180, 180, 180, 180, 180]
+        ]
+        glb_ph += fc
+
+        # ken numb 2
+        bwd_shifted = [
+            [
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * n_prep * fc
+
+        # recovery
+        ph19 = [
+            (ang + glb_ph) % 360
+            for ang in [
+                270,
+                270,
+                270,
+                270,
+                270,
+                270,
+                270,
+                270,
+                90,
+                90,
+                90,
+                90,
+                90,
+                90,
+                90,
+                90,
+            ]
+        ]
+
+        str_list = []
+
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(fwd_shifted[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(fwd_shifted[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(fwd_shifted[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(fwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        str_list.append("ph14 = (360) " + " ".join(to_str(ph14)))
+        str_list.append("")
+        str_list.append("ph15 = (360) " + " ".join(to_str(bwd_shifted[0])))
+        str_list.append("ph16 = (360) " + " ".join(to_str(bwd_shifted[1])))
+        str_list.append("ph17 = (360) " + " ".join(to_str(bwd_shifted[2])))
+        str_list.append("ph18 = (360) " + " ".join(to_str(bwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph19 = (360) " + " ".join(to_str(ph19)))
+        str_list.append("")
 
         return f"\n".join(str_list)
 
@@ -714,19 +1064,13 @@ class PulseProgram:
 
     @staticmethod
     def pine8(fc=0, n_max=50, xx=False):
-        ph_prog = [
-            [0,180,180,0],
-            [0,180,180,0]
-        ]
+        ph_prog = [[0, 180, 180, 0], [0, 180, 180, 0]]
 
         ph_prog_len = len(ph_prog)
         ph_prog_depth = len(ph_prog[0])
 
         shifts = [
-            [
-                fc * (ph_prog_len * i + k)
-                for i in range(n_max * ph_prog_depth)
-            ]
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
             for k in range(ph_prog_len)
         ]
 
@@ -757,24 +1101,15 @@ class PulseProgram:
 
     @staticmethod
     def pine8_mqc(fc=0, n_max=50, M=10):
-        ph_prog_fwd = [
-            [0,180,180,0],
-            [0,180,180,0]
-        ]
+        ph_prog_fwd = [[0, 180, 180, 0], [0, 180, 180, 0]]
 
-        ph_prog_bwd = [
-            [90,270,270,90],
-            [90,270,270,90]
-        ]
+        ph_prog_bwd = [[90, 270, 270, 90], [90, 270, 270, 90]]
 
         ph_prog_len = len(ph_prog_fwd)
         ph_prog_depth = len(ph_prog_fwd[0])
 
         shifts = [
-            [
-                fc * (ph_prog_len * i + k)
-                for i in range(n_max * ph_prog_depth)
-            ]
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
             for k in range(ph_prog_len)
         ]
 
@@ -788,7 +1123,12 @@ class PulseProgram:
 
         bwd_shifted = [
             [
-                (ph_prog_bwd[k][idx % ph_prog_depth] + shift + fc*ph_prog_depth*ph_prog_len) % 360
+                (
+                    ph_prog_bwd[k][idx % ph_prog_depth]
+                    + shift
+                    + fc * ph_prog_depth * ph_prog_len
+                )
+                % 360
                 for idx, shift in enumerate(shifts[k])
             ]
             for k in range(ph_prog_len)
@@ -796,95 +1136,100 @@ class PulseProgram:
 
         str_list = []
 
-
         for idx, phases in enumerate(fwd_shifted):
             str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
 
         str_list.append("")
 
         for idx, phases in enumerate(bwd_shifted):
-            str_list.append("ph" + str(idx+ph_prog_len) + " = (360) " + " ".join(to_str(phases)))
+            str_list.append(
+                "ph" + str(idx + ph_prog_len) + " = (360) " + " ".join(to_str(phases))
+            )
 
         str_list.append("")
         str_list.append(";Increment encoding z-rotation")
         str_list.append("")
 
-        for idx in range(ph_prog_len,2*ph_prog_len,1):
-            str_list.append("5m ph" + str(idx) + "*" + str(int(360/(2*M))) )
+        for idx in range(ph_prog_len, 2 * ph_prog_len, 1):
+            str_list.append("5m ph" + str(idx) + "*" + str(int(360 / (2 * M))))
 
         str_list.append("")
         str_list.append(";increment frame change to account for longer evolution")
         str_list.append("")
 
-        for idx in range(ph_prog_len,2*ph_prog_len,1):
-            str_list.append("5m ip" + str(idx) + "*" + str((fc*ph_prog_depth*ph_prog_len) % 360))
+        for idx in range(ph_prog_len, 2 * ph_prog_len, 1):
+            str_list.append(
+                "5m ip" + str(idx) + "*" + str((fc * ph_prog_depth * ph_prog_len) % 360)
+            )
 
         return f"\n".join(str_list)
-    
 
+    @staticmethod
+    def mqc_generic_zz(ph_prog_fwd, ph_prog_bwd, fc=0, n_max=15, M=10):
+        if 180 / M != int(180 / M):
+            return "Invalid Encoding"
 
-def mqc_generic_zz(ph_prog_fwd,ph_prog_bwd,fc=0,n_max=15,M=10):
-    if 180/M != int(180/M):
-        return "Invalid Encoding"
-    
-    ph_prog_len = len(ph_prog_fwd)
-    ph_prog_depth = len(ph_prog_fwd[0])
+        ph_prog_len = len(ph_prog_fwd)
+        ph_prog_depth = len(ph_prog_fwd[0])
 
-    # generate the frame change shifts for a single phase program
-    shifts = [
-        [
-            fc * (ph_prog_len * i + k)
-            for i in range(n_max * ph_prog_depth)
+        # generate the frame change shifts for a single phase program
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
         ]
-        for k in range(ph_prog_len)
-    ]
 
-    # generated shifted rotation angles for forward evolution
-    fwd_shifted = [
-        [
-            (ph_prog_fwd[k][idx % ph_prog_depth] + shift) % 360
-            for idx, shift in enumerate(shifts[k])
+        # generated shifted rotation angles for forward evolution
+        fwd_shifted = [
+            [
+                (ph_prog_fwd[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
         ]
-        for k in range(ph_prog_len)
-    ]
 
-    # generate shifted rotation angles for backward evoltion. Needs to be incremeneted during the pp
-    # for each additional time evolution period
-    bwd_shifted = [
-        [
-            (ph_prog_bwd[k][idx % ph_prog_depth] + shift + fc*ph_prog_depth*ph_prog_len) % 360
-            for idx, shift in enumerate(shifts[k])
+        # generate shifted rotation angles for backward evoltion. Needs to be incremeneted during the pp
+        # for each additional time evolution period
+        bwd_shifted = [
+            [
+                (
+                    ph_prog_bwd[k][idx % ph_prog_depth]
+                    + shift
+                    + fc * ph_prog_depth * ph_prog_len
+                )
+                % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
         ]
-        for k in range(ph_prog_len)
-    ]
 
-    # Print the evoltion phase programs
-    str_list = []
-    for idx, phases in enumerate(fwd_shifted):
-        str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+        # Print the evoltion phase programs
+        str_list = []
+        for idx, phases in enumerate(fwd_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
 
-    str_list.append("")
+        str_list.append("")
 
-    for idx, phases in enumerate(bwd_shifted):
-        str_list.append("ph" + str(idx+ph_prog_len) + " = (360) " + " ".join(to_str(phases)))
+        for idx, phases in enumerate(bwd_shifted):
+            str_list.append(
+                "ph" + str(idx + ph_prog_len) + " = (360) " + " ".join(to_str(phases))
+            )
 
+        # Print the encoding rotation phases
+        str_list.append("")
+        str_list.append(";Increment encoding z-rotation")
+        str_list.append("")
 
-    # Print the encoding rotation phases
-    str_list.append("")
-    str_list.append(";Increment encoding z-rotation")
-    str_list.append("")
+        for idx in range(ph_prog_len, 2 * ph_prog_len, 1):
+            str_list.append("5m ip" + str(idx) + "*" + str(int(360 / (2 * M))))
 
-    for idx in range(ph_prog_len,2*ph_prog_len,1):
-        str_list.append("5m ph" + str(idx) + "*" + str(int(360/(2*M))) )
+        # Print the frame change increments to account for an additional evoltuion period.
+        str_list.append("")
+        str_list.append(";increment frame change to account for longer evolution")
+        str_list.append("")
 
-    # Print the frame change increments to account for an additional evoltuion period.
-    str_list.append("")
-    str_list.append(";increment frame change to account for longer evolution")
-    str_list.append("")
+        for idx in range(ph_prog_len, 2 * ph_prog_len, 1):
+            str_list.append(
+                "5m ip" + str(idx) + "*" + str((fc * ph_prog_depth * ph_prog_len) % 360)
+            )
 
-    for idx in range(ph_prog_len,2*ph_prog_len,1):
-        str_list.append("5m ip" + str(idx) + "*" + str((fc*ph_prog_depth*ph_prog_len) % 360))
-
-    return f"\n".join(str_list)
-
-    
+        return f"\n".join(str_list)

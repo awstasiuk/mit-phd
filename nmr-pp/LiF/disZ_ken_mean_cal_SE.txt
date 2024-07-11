@@ -1,0 +1,121 @@
+; 11 June 2024
+; Andrew Stasiuk
+
+define delay tau1
+"tau1 = d3*(1+cnst1+2*cnst2)-p1/2"
+define delay tau2
+"tau2 = d3*(1-cnst2)-p1"
+define delay tau3
+"tau3 = 2*d3*(1-cnst2)-p1"
+
+define delay tau1p
+"tau1p = d3*(1-cnst1+2*cnst2)-p1/2"
+
+define delay tau1r
+"tau1 = d3*(1+cnst3+2*cnst4)-p1/2"
+define delay tau2r
+"tau2 = d3*(1-cnst4)-p1"
+define delay tau3r
+"tau3 = 2*d3*(1-cnst4)-p1"
+
+define delay tau1pr
+"tau1p = d3*(1-cnst3+2*cnst4)-p1/2"
+
+define delay cycle
+"cycle=24*d3"
+"l1=0"
+
+1  ze
+
+2   ; state & pp reset delay
+    d1 rpp1 rpp2 rpp3 rpp4 rpp15 rpp16 rpp17 rpp18
+    100u pl2:f2
+
+; Random Zeeman State Preparation
+    (p1 ph0):f2
+
+3 ; repeated ken to encode disorder
+    tau1
+    (p1 ph1^):f2
+    tau2
+    (p1 ph2^):f2
+    tau3
+    (p1 ph3^):f2
+    tau2
+    (p1 ph4^):f2
+    tau1p
+
+    tau1p
+    (p1 ph1^):f2
+    tau2
+    (p1 ph2^):f2
+    tau3
+    (p1 ph3^):f2
+    tau2
+    (p1 ph4^):f2
+    tau1
+
+    lo to 3 times l1
+
+    (p1 ph5):f2
+    
+
+; Hamiltonian Evolution
+4  2.5u ; something goes here eventually
+
+
+5 ; repeated ken to suspend
+    tau1r
+    (p1 ph15^):f2
+    tau2r
+    (p1 ph16^):f2
+    tau3r
+    (p1 ph17^):f2
+    tau2r
+    (p1 ph18^):f2
+    tau1pr
+
+    tau1pr
+    (p1 ph15^):f2
+    tau2r
+    (p1 ph16^):f2
+    tau3r
+    (p1 ph17^):f2
+    tau2r
+    (p1 ph18^):f2
+    tau1r
+
+    lo to 5 times l1
+
+    (p1 ph29):f2
+    20u
+    (p1 ph30):f2
+
+    go=2 ph31
+    1m wr #0 if #0
+
+    ; increment ken time
+    5m iu1
+    5m iu1
+    lo to 2 times td1
+
+  exit
+
+
+ph0 = (360) 90 90 270 270 0 0 180 180
+
+ph1 = (360) 0 0 180 180
+ph2 = (360) 90 90 270 270
+ph3 = (360) 90 90 270 270
+ph4 = (360) 0 0 180 180
+
+ph5 = (360) 0 0 180 180 270 270 90 90
+
+ph15 = (360) 0 0 180 180
+ph16 = (360) 90 90 270 270
+ph17 = (360) 90 90 270 270
+ph18 = (360) 0 0 180 180
+
+ph29 = 0 2
+ph30 = 1 3
+ph31 = 0 2

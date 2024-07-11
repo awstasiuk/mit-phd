@@ -2,7 +2,8 @@ from nmresearch.fermion.math import Math as fm
 from nmresearch.fermion.operator import Operator
 from nmresearch.fermion.majorana import PauliString, MajoranaString
 
-import numpy as np
+from numpy import block, conj, complex128, zeros, real, kron, sqrt, eye, array
+from numpy.linalg import norm
 from pfapack import pfaffian as pf
 from math import e, pi, ceil
 
@@ -77,7 +78,7 @@ class Unitary:
         """
         u1 = self.U1(t)
         u2 = self.U2(t)
-        return np.block([[u1, u2], [np.conj(u2), np.conj(u1)]])
+        return block([[u1, u2], [conj(u2), conj(u1)]])
 
     def local_zz(self, idx1, idx2):
         r"""
@@ -90,7 +91,7 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            (np.abs(self.U1(t)[idx1, idx2]) ** 2 - np.abs(self.U2(t)[idx1, idx2]) ** 2)
+            (abs(self.U1(t)[idx1, idx2]) ** 2 - abs(self.U2(t)[idx1, idx2]) ** 2)
             for t in self.t
         ]
 
@@ -103,10 +104,7 @@ class Unitary:
         returns a list of points evaluated on this instance's time mesh.
         """
         return [
-            (
-                np.linalg.norm(self.U1(t), "fro") ** 2
-                - np.linalg.norm(self.U2(t), "fro") ** 2
-            )
+            (norm(self.U1(t), "fro") ** 2 - norm(self.U2(t), "fro") ** 2)
             for t in self.t
         ]
 
@@ -120,10 +118,9 @@ class Unitary:
         """
         if use_true:
             return [
-                np.sum(self.true_OTOC_tensor(mu, nu, t)) / self.n_fermion
-                for t in self.t
+                sum(self.true_OTOC_tensor(mu, nu, t)) / self.n_fermion for t in self.t
             ]
-        return [np.sum(self.centered_OTOC_tensor(mu, nu, t)) for t in self.t]
+        return [sum(self.centered_OTOC_tensor(mu, nu, t)) for t in self.t]
 
     def OTOC_tensor_elem(self, mu, nu, a, b, c, d, t):
         r"""
@@ -158,7 +155,7 @@ class Unitary:
             return self._cache["OTOC"][mu + nu][t]
         n = self.n_fermion
         center = int(n / 2)
-        otoc = np.zeros((n, n, n))
+        otoc = zeros((n, n, n))
 
         for a in range(n):
             for b in range(n):
@@ -174,7 +171,7 @@ class Unitary:
                         [a, center, b, c],
                         [False, True, True, False],
                     )
-                    otoc[a, b, c] = -2 * np.real(
+                    otoc[a, b, c] = -2 * real(
                         self._pfaffian_helper(term1, t)
                         - self._pfaffian_helper(term2, t)
                     )
@@ -200,7 +197,7 @@ class Unitary:
         This is for non-translationally invariant hamiltonians, and is not very efficient
         """
         n = self.n_fermion
-        otoc = np.zeros((n, n, n, n))
+        otoc = zeros((n, n, n, n))
 
         for a in range(n):
             for b in range(n):
@@ -217,7 +214,7 @@ class Unitary:
                             [b, a, c, d],
                             [False, True, True, False],
                         )
-                        otoc[a, b, c, d] = -2 * np.real(
+                        otoc[a, b, c, d] = -2 * real(
                             self._pfaffian_helper(term1, t)
                             - self._pfaffian_helper(term2, t)
                         )
@@ -232,9 +229,9 @@ class Unitary:
         and computing its expectation value using Wick's theorem and the pfaffian matrix method,
         so only a submatrix of two body correlations within the many-body string need to be computed.
         """
-        return np.array(
+        return array(
             [self._pfaffian_helper(pauli_string, t) for t in self.t],
-            dtype=np.complex128,
+            dtype=complex128,
         )
 
     def _pfaffian_helper(self, pauli_string, t):
@@ -254,7 +251,7 @@ class Unitary:
 
         # generate the skew-symmetric matrix encoding the total expecation value to be
         # extracted via pfaffian
-        pf_mat = np.zeros((n, n), dtype=np.complex128)
+        pf_mat = zeros((n, n), dtype=complex128)
         for i in range(n):
             for j in range(i + 1, n):
                 idx1 = maj_str.sites[i] + self.n_fermion * int(
@@ -297,7 +294,7 @@ class Unitary:
         """
         if t in self._cache["Cm"]:
             return self._cache["Cm"][t]
-        T = np.kron([[1, 1], [-1j, 1j]] / np.sqrt(2), np.eye(self.n_fermion))
+        T = kron([[1, 1], [-1j, 1j]] / sqrt(2), eye(self.n_fermion))
         Ct = 0.5 * (T @ self.U(t) @ fm.adj(T))
         self._cache["Cm"][t] = Ct
         return Ct
