@@ -317,6 +317,46 @@ class PulseProgram:
 
         return f"\n".join(str_list)
 
+    def staber_pi(fc, n_max, xx=False):
+        staber = [
+            [0, 180, 0],
+            [90, 90, 90],
+            [180, 180, 0],
+            [270, 270, 90],
+        ]
+
+        ph_prog_len = len(staber)
+        ph_prog_depth = len(staber[0])
+
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_max * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        staber_shifted = [
+            [
+                (staber[k][idx % ph_prog_depth] + shift) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        str_list = []
+
+        if xx:
+            str_list.append(
+                "5m ip29*" + str((shifts[-1][ph_prog_depth - 1] + fc) % 360)
+            )
+            str_list.append("")
+            str_list.append(
+                "ph28 = (360) "
+                + " ".join(to_str([90 - fc, 90 - fc, 270 - fc, 270 - fc]))
+            )
+
+        for idx, phases in enumerate(staber_shifted):
+            str_list.append("ph" + str(idx) + " = (360) " + " ".join(to_str(phases)))
+
+        return f"\n".join(str_list)
+
     @staticmethod
     def peng24(fc, n_max=50, theta=0, xx=False):
         r"""
@@ -605,6 +645,118 @@ class PulseProgram:
         for i in range(14, 19, 1):
             str_list.append("25m ip" + str(i) + "*" + str((n_pulses * fc) % 360))
         str_list.append("25m ip" + str(19) + "*" + str((2 * n_pulses * fc) % 360))
+
+        str_list.append("")
+        str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
+        str_list.append("")
+        str_list.append("ph1 = (360) " + " ".join(to_str(fwd_shifted[0])))
+        str_list.append("ph2 = (360) " + " ".join(to_str(fwd_shifted[1])))
+        str_list.append("ph3 = (360) " + " ".join(to_str(fwd_shifted[2])))
+        str_list.append("ph4 = (360) " + " ".join(to_str(fwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph5 = (360) " + " ".join(to_str(ph5)))
+        str_list.append("")
+        str_list.append("ph14 = (360) " + " ".join(to_str(ph14)))
+        str_list.append("")
+        str_list.append("ph15 = (360) " + " ".join(to_str(bwd_shifted[0])))
+        str_list.append("ph16 = (360) " + " ".join(to_str(bwd_shifted[1])))
+        str_list.append("ph17 = (360) " + " ".join(to_str(bwd_shifted[2])))
+        str_list.append("ph18 = (360) " + " ".join(to_str(bwd_shifted[3])))
+        str_list.append("")
+        str_list.append("ph19 = (360) " + " ".join(to_str(ph19)))
+        str_list.append("")
+
+        return f"\n".join(str_list)
+
+    @staticmethod
+    def disorder_state_internal_evolution(fc, n_prep=4):
+        r"""
+        ASHDJFHAJSDHFJSDF
+        """
+        # preliminaries
+        ken16 = [
+            [0, 0, 180, 180],
+            [90, 90, 270, 270],
+            [90, 90, 270, 270],
+            [0, 0, 180, 180],
+        ]
+        ph_prog_len = len(ken16)
+        ph_prog_depth = len(ken16[0])
+        n_pulses = ph_prog_depth * ph_prog_len
+
+        # generate the frame change shifts for a single phase program of the right shape
+        shifts = [
+            [fc * (ph_prog_len * i + k) for i in range(n_prep * ph_prog_depth)]
+            for k in range(ph_prog_len)
+        ]
+
+        glb_ph = 0
+
+        # begin chaos
+
+        # state prep
+        ph0 = [90, 90, 270, 270, 0, 0, 180, 180]
+        glb_ph += fc
+
+        # whh1
+        fwd_shifted = [
+            [
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * n_prep * fc
+
+        # cycle
+        ph5 = [(ang + glb_ph) % 360 for ang in [0, 0, 180, 180, 270, 270, 90, 90]]
+        glb_ph += fc
+
+        #
+        # evolution is a loop over delays
+        #
+
+        # observable stuff
+        ph14 = [
+            (ang + glb_ph) % 360
+            for ang in [0, 0, 0, 0, 0, 0, 0, 0, 180, 180, 180, 180, 180, 180, 180, 180]
+        ]
+        glb_ph += fc
+
+        # ken numb 2
+        bwd_shifted = [
+            [
+                (ken16[k][idx % ph_prog_depth] + shift + glb_ph) % 360
+                for idx, shift in enumerate(shifts[k])
+            ]
+            for k in range(ph_prog_len)
+        ]
+        glb_ph += n_pulses * n_prep * fc
+
+        # recovery
+        ph19 = [
+            (ang + glb_ph) % 360
+            for ang in [
+                270,
+                270,
+                270,
+                270,
+                270,
+                270,
+                270,
+                270,
+                90,
+                90,
+                90,
+                90,
+                90,
+                90,
+                90,
+                90,
+            ]
+        ]
+
+        str_list = []
 
         str_list.append("")
         str_list.append("ph0 = (360) " + " ".join(to_str(ph0)))
