@@ -18,8 +18,10 @@ def reshape_pp(prog, target_rows):
 
 class TwoPointCorrelator:
     r"""
-    A modular class for generating bruker pulse sequences for
-    complex NMR experiments
+    A modular class for generating bruker pulse sequences for complex NMR Two
+    Point Correlator experiments. There are a few pre-defined pulse sequences
+    available as gloabl variables own by this class and its instances.
+
     """
 
     WHH = [[0], [270], [90], [180]]
@@ -34,18 +36,6 @@ class TwoPointCorrelator:
         [90, 90, 270, 270],
         [90, 90, 270, 270],
         [0, 0, 180, 180],
-    ]
-    STABER = [
-        [0, 180, 0],
-        [90, 90, 90],
-        [180, 180, 0],
-        [270, 270, 270],
-    ]
-    STABER2 = [
-        [0, 0, 90],
-        [90, 90, 180],
-        [180, 90, 90],
-        [90, 0, 0],
     ]
     STABERYXX = [
         [90, 0, 90],
@@ -67,7 +57,7 @@ class TwoPointCorrelator:
         [0, 180],
         [0, 180],
     ]
-    PINE8 = [[0, 180, 180, 0], [0, 180, 180, 0]]
+    PINE8 = [[0, 0, 180, 180], [0, 0, 180, 180]]  # t/2 - 2t - t - 2t - t ...
     MREV = [
         [180, 0],
         [90, 90],
@@ -76,6 +66,16 @@ class TwoPointCorrelator:
     ]
 
     def __init__(self, use_magic=True):
+        """
+        Create an instance of this class, setting the measurement pulses and dictating
+        if the measurement is to be a direct FID measurement (`use_magic`=False) or assisted
+        with the solid echo (`use_magic`=True), which is the default behavior. 32 phase programs
+        can be defined, but the last three (29,30,31) are reserved for measurement. Phase program
+        labels are defined on-the-fly via a first-come first-serve procedure. That is, if the
+        observable is set before the state, then the observable-related sequences will have lower
+        phase program indices than the the state-related sequences. This should not have any
+        adverse effect on the pulse prorgam's ability to run.
+        """
         self.phase_programs = [None for _ in range(32)]
         if use_magic:
             self.phase_programs[-3] = [0, 180]
@@ -300,6 +300,12 @@ class TwoPointCorrelator:
         """
         Generate the phase programs in the bruker format, printing the generated
         lists of strings in a nice way
+
+        `fc` is the frame change angle to correct for phase transient errors
+
+        `evo_max` is the amount of floquet periods of the evolution phase program to
+        pre-compile. If `fc`!=0, then td2 of the TPC experiment should not exceed this
+        quantity
         """
         if not (self.obs_is_set and self.state_is_set and self.evo_is_set):
             return "experiment is not yet fully defined"
@@ -458,11 +464,22 @@ class TwoPointCorrelator:
         else:
             return reset_list, update_list, pp_list
 
-    def generate_pulse_program(self, fc=0, evo_max=1):
+    def generate_pulse_program(self, fc=0, evo_max=1, filename=None):
+        """
+        Generates a full bruker pulse program for a two point correlator experiment,
+        as described by this class. The entire pulse program is printed as a string and
+        saved to a textfile in the same directory as the active instance calling this
+        method. the filename defaults to "default_pp.txt" if no filename is specified.
+
+        `fc` is the frame change angle to correct for phase transient errors
+
+        `evo_max` is the amount of floquet periods of the evolution phase program to
+        pre-compile. If `fc`!=0, then td2 of the TPC experiment should not exceed this
+        quantity
+        """
         reset_list, update_list, pp_list = self.generate_phase_programs(
             fc, evo_max, print_me=False
         )
-
         #####
         # Header stuff
         #####
@@ -472,7 +489,7 @@ class TwoPointCorrelator:
             delay = ddef.split("=")[0]
             header_list.append(f"define delay {delay}")
             header_list.append('"' + ddef + '"')
-        header_list.append("l1=0  ; start the evolution counter at 0")
+        header_list.append('"l1=0"  ; start the evolution counter at 0')
         header_list.append("")
         header_list.append("1   ze")
         header_list.append("")
@@ -480,8 +497,6 @@ class TwoPointCorrelator:
         header_list.append("d1 " + " ".join(reset_list))
         header_list.append("100u pl2:f2")
         header_list.append("")
-
-        print(f"\n".join(header_list))
 
         #####
         # State Logic
@@ -527,8 +542,6 @@ class TwoPointCorrelator:
                     state_list.append("1.5u")
                 state_list.append("")
 
-        print(f"\n".join(state_list))
-
         #####
         # Evolution Logic
         #####
@@ -547,8 +560,7 @@ class TwoPointCorrelator:
 
         evo_list.append("")
         evo_list.append("lo to 4 times l1")
-
-        print(f"\n".join(evo_list))
+        evo_list.append("")
 
         #####
         # Observable Logic
@@ -584,8 +596,8 @@ class TwoPointCorrelator:
                 obs_list.append("")
 
                 for idx in range(self.obs_loop[1] + 1, self.idx):
-                    state_list.append(f"(p1 ph{idx}):f2")
-                    state_list.append("1.5u")
+                    obs_list.append(f"(p1 ph{idx}):f2")
+                    obs_list.append("1.5u")
 
                 obs_list.append("")
             else:
@@ -593,8 +605,6 @@ class TwoPointCorrelator:
                     obs_list.append(f"(p1 ph{idx}):f2")
                     obs_list.append("1.5u")
                 obs_list.append("")
-
-        print(f"\n".join(obs_list))
 
         #####
         # Measurement and exit
@@ -618,10 +628,20 @@ class TwoPointCorrelator:
         meas_list.append("lo to 2 times td1")
         meas_list.append("")
         meas_list.append("exit")
+        meas_list.append("")
 
+        print(f"\n".join(header_list))
+        print(f"\n".join(state_list))
+        print(f"\n".join(evo_list))
+        print(f"\n".join(obs_list))
         print(f"\n".join(meas_list))
-
-        #####
-        # Phase Programs
-        #####
         print(f"\n".join(pp_list))
+
+        file = filename if filename is not None else "default_pp.txt"
+        with open(file, "w") as f:
+            f.write(f"\n".join(header_list))
+            f.write(f"\n".join(state_list))
+            f.write(f"\n".join(evo_list))
+            f.write(f"\n".join(obs_list))
+            f.write(f"\n".join(meas_list))
+            f.write(f"\n".join(pp_list))
