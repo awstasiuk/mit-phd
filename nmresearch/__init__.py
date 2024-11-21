@@ -15,6 +15,7 @@ import nmresearch.fermion.math
 import nmresearch.fermion.unitary
 import nmresearch.interface.experiment
 import nmresearch.interface.pp_gen
+import nmresearch.interface.pulse_program
 import nmresearch.crystal.atom
 import nmresearch.crystal.crystal
 import nmresearch.crystal.disorder
@@ -30,6 +31,7 @@ from nmresearch.fermion.math import Math
 from nmresearch.fermion.unitary import Unitary
 from nmresearch.interface.experiment import Experiment
 from nmresearch.interface.pp_gen import PulseProgram
+from nmresearch.interface.pulse_program import TwoPointCorrelator
 from nmresearch.crystal.atom import Atom, AtomPos
 from nmresearch.crystal.crystal import Crystal
 from nmresearch.crystal.disorder import Disorder

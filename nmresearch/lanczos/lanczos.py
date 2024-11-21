@@ -24,6 +24,10 @@ class Lanczos:
         self.k_complexity = None
 
     def compute_lanczos_fast(self, use_ham=True, max_iter=50, tol=1e-10):
+        r"""
+        use_ham dictates whether we are dealing with hamiltonians and states or super-operators and
+        vectorized operators (liouvillian representation)
+        """
         if use_ham:
             self._compute_lanczos_fast_ham(max_iter=max_iter, tol=tol)
         else:

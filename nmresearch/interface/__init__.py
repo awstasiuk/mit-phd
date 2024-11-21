@@ -7,6 +7,8 @@ except DistributionNotFound:
 
 import nmresearch.interface.experiment
 import nmresearch.interface.pp_gen
+import nmresearch.interface.pulse_program
 
 from nmresearch.interface.experiment import Experiment
 from nmresearch.interface.pp_gen import PulseProgram
+from nmresearch.interface.pulse_program import TwoPointCorrelator
