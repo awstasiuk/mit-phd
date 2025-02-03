@@ -80,8 +80,9 @@ class TwoPointCorrelator:
         if use_magic:
             self.phase_programs[-3] = [0, 180]
         self.phase_programs[-2] = [90, 270]
-        self.phase_programs[-1] = [0, 2]
+
         # ph31 must be in base-4 for our topspin language
+        self.phase_programs[-1] = [0, 2]
 
         self.idx = 0
         self.delay_defs = []
