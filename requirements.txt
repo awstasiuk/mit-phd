@@ -5,3 +5,4 @@ tensorflow
 pfapack
 nmrglue
 scikit-learn
+rustworkx
