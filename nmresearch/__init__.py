@@ -8,6 +8,7 @@ except DistributionNotFound:
 import nmresearch.fermion
 import nmresearch.interface
 import nmresearch.crystal
+import nmresearch.percolation
 
 import nmresearch.fermion.operator
 import nmresearch.fermion.majorana
