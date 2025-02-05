@@ -7,21 +7,26 @@ import rustworkx as rx
 class BaseGraph:
 
     def __init__(self):
-        # do something ?
-        self.G = None
+        self.generators = {
+            "fcc": BaseGraph.generate_fcc,
+            "sc": BaseGraph.generate_grid_graph,
+        }
 
     @cache
-    def load_graph(fmt, generator, dim):
+    def load_graph(self, gen_str, dim, layers=1):
+        if gen_str not in self.generators.keys():
+            print("This is not a valid generator key with a defined graph structure")
+            raise NotImplementedError
         try:
-            G = pickle.load(open(f"{fmt}{dim}.dat", "rb"))
+            G = pickle.load(open(f"{gen_str}_n{layers}_d{dim}.dat", "rb"))
         except (OSError, IOError) as e:
-            G = generator(dim)
-            with open(f"{fmt}{dim}.dat", "wb") as fi:
+            G = self.generators[gen_str](dim, layers)
+            with open(f"{gen_str}_n{layers}_d{dim}.dat", "wb") as fi:
                 pickle.dump(G, fi)
         return G
 
     @staticmethod
-    def generate_fcc(dim, weight_adj):
+    def generate_fcc(dim, layers):
         """
         Generate a 3D fcc graph of size `dim` of Manhattan radius dim
         edges and their weights are defined by the `weight_adj` structure.
@@ -34,7 +39,7 @@ class BaseGraph:
         G = rx.PyGraph(multigraph=False)
         f_atom_pos = BaseGraph._lif_f_sublattice(dim)
         node_indices = G.add_nodes_from(f_atom_pos)
-
+        weight_adj = BaseGraph._fcc_dipole_adj(layers)
         for J, adj_layer in weight_adj:
             for idxA in node_indices:
                 source = G.get_node_data(idxA)
@@ -46,6 +51,27 @@ class BaseGraph:
                         counter += 1
                     if counter == len(adj_layer):
                         break
+        return G
+
+    @staticmethod
+    def generate_grid_graph(dim):
+        """
+        Generate a grid graph which is rectangular and of arbitrary dimension.
+
+        Args:
+            dim (tuple of ints): side lengths of the desired grid graph,
+            of arbitrary dimension
+
+        Returns:
+            Graph: A grid-graph with demsions defined by dim
+        """
+        if len(dim) == 1:
+            return rx.generators.path_graph(dim[0])
+        else:
+            G = rx.generators.path_graph(dim[0])
+            for idx in range(1, len(dim)):
+                Gnew = rx.generators.path_graph(dim[idx])
+                G, _ = rx.cartesian_product(Gnew, G)
 
         return G
 
@@ -65,7 +91,7 @@ class BaseGraph:
         odds_grid2 = np.array(np.meshgrid(odds, evens, evens)).T.reshape(-1, 3)
         return np.vstack((odds_grid, evens_grid, evens_grid2, odds_grid2))
 
-    def fcc_dipole_adj(self, layers):
+    def _fcc_dipole_adj(self, layers):
         """
         This function is a hamfisted mess which gets adjacency for up to 6th
         layer spins via dipole connectivity along the [111] direction. This
@@ -75,6 +101,10 @@ class BaseGraph:
         Args:
             layers (int): number of adjacency layers to consider, a positive integer
         """
+        if type(layers) is not int or layers > 6 or layers < 1:
+            print("not implemented yet")
+            return "garbage return for garbage code"
+
         weight_adj = []
 
         J_vals = [1, 0.32075, 0.19245, 0.13608, 0.125, 0.06415]
@@ -129,4 +159,4 @@ class BaseGraph:
         ]
         weight_adj.append([J_vals[5], n7_adjacency])
 
-        return weight_adj
+        return weight_adj[0:layers]
