@@ -5,6 +5,16 @@ import rustworkx as rx
 
 
 class BaseGraph:
+    """
+    This is a class which generates dense graphs of large size of variable connectivity,
+    which will then by used by a percolation or random walk function. The class
+    needs to be able to generate the graph structure, save it, and vary the connectivity.
+
+    At present, this is only partially implemented. A good idea would be to scaffold this
+    BaseGraph class and then subclass it for each distinct graph type. Like, FccGraph(BaseGraph)
+    sort of thing, where you need to implement the function generate(), but load_graph itself
+    is still owned by the BaseGraph class.
+    """
 
     def __init__(self):
         self.generators = {
@@ -37,7 +47,7 @@ class BaseGraph:
             weight_adj (list): a list of list pairs of format [J, adjacency]
         """
         G = rx.PyGraph(multigraph=False)
-        f_atom_pos = BaseGraph._lif_f_sublattice(dim)
+        f_atom_pos = BaseGraph._centered_fcc_lattice(dim)
         node_indices = G.add_nodes_from(f_atom_pos)
         weight_adj = BaseGraph._fcc_dipole_adj(layers)
         for J, adj_layer in weight_adj:
@@ -54,7 +64,7 @@ class BaseGraph:
         return G
 
     @staticmethod
-    def generate_grid_graph(dim):
+    def generate_grid_graph(dim, layers):
         """
         Generate a grid graph which is rectangular and of arbitrary dimension.
 
@@ -75,7 +85,7 @@ class BaseGraph:
 
         return G
 
-    def _lif_f_sublattice(r0):
+    def _centered_fcc_lattice(r0):
         r"""
         Generate an array containing all of the positions of fluorine atoms in a LiF lattice which
         extends from -r0 to r0 in all directions. If r0 is even, this contains the point (0,0,0),
@@ -95,8 +105,9 @@ class BaseGraph:
         """
         This function is a hamfisted mess which gets adjacency for up to 6th
         layer spins via dipole connectivity along the [111] direction. This
-        DEFINTELY should be generalized for future use. E.g. more code efficient
-        generation and
+        DEFINTELY should be generalized for future use. E.g. more code-efficient
+        generation and arbitrary connectivity. The 3D monte carlo testing NB can
+        be used to sort and get things going for fcc ideas
 
         Args:
             layers (int): number of adjacency layers to consider, a positive integer
