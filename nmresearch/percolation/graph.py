@@ -111,16 +111,15 @@ class QuantumGraph:
     A description of what this class does
     """
 
-    def __init__(self, generator):
-        self.base_graph = None
-        self.generator = generator
+    def __init__(self, base_graph):
+        self.base_graph = base_graph
 
     @cache
     def mean_hopping_prob(sigma, J=1):
         y = J / (4 * sigma)
         return y * np.sqrt(np.pi) * np.exp(y**2) * sp.special.erfc(y)
 
-    def generate_percolation_graph(self, sigma, dim):
+    def generate_percolation_graph(self, sigma, dim, layers):
         r"""
         Generates a percolation graph with disorder strength sigma, the std
         of a normal distribution.
@@ -129,7 +128,9 @@ class QuantumGraph:
         function will be called with the `dim` keyword to determine its size, so these
         should be paired together.
         """
-        G = self.generator(dim).copy()  # avoid potentially mutating the original
+        G = self.base_graph.generate(
+            dim, layers
+        ).copy()  # avoid potentially mutating the original
 
         # get each edge's coupling strength, J, and compute the mean hopping prob
         # for the given sigma. Then, randomly keep the bond with that probability, otherwise
@@ -144,15 +145,25 @@ class QuantumGraph:
         G.remove_edges_from(remove_list)
         return G
 
-    def avg_cluster_size(self, sigma, repititions, dim):
-        r"""
-        wirds
+    def avg_cluster_size(self, sigma, repititions, dim, layers):
+        """
+
+
+        Args:
+            sigma (double): _description_
+            repititions (int): _description_
+            dim (int): _description_
+            layers (int): _description_
+
+        Returns:
+            double: _description_
         """
         try:
-            G0 = self.generator(dim)
+            G0 = self.base_graph.generate(dim, layers)
         except Exception as e:
-            print("generator and dim are mismatched")
+            print("generator-param combo is invalid")
             return
+
         sites = G0.num_nodes()
         counts = np.zeros(sites + 1, dtype=np.int64)
         for _ in range(repititions):
@@ -168,15 +179,15 @@ class QuantumGraph:
         bins = np.array(range(sites + 1))
         return (bins**2 @ counts) / (bins @ counts) if bins @ counts != 0 else 0
 
-    def percolation_strength(self, sigma, repititions, dim):
+    def percolation_strength(self, sigma, repititions, dim, layers):
         r"""
         thots
         """
         P = 0
         try:
-            G0 = self.generator(dim)
+            G0 = self.base_graph.generate(dim, layers)
         except Exception as e:
-            print("generator and dim are mismatched")
+            print("generator-param combo is invalid")
             return
         sites = G0.num_nodes()
         for _ in range(repititions):

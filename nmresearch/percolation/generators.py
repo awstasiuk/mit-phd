@@ -17,54 +17,38 @@ class BaseGraph:
     """
 
     def __init__(self):
-        self.generators = {
-            "fcc": BaseGraph.generate_fcc,
-            "sc": BaseGraph.generate_grid_graph,
-        }
+        self.gen_str = None
+
+    def generate(self, dim, layers):
+        """Something about class mutability and whatever
+
+        Args:
+            dim (_type_): _description_
+            layers (_type_): _description_
+        """
+        pass
 
     @cache
-    def load_graph(self, gen_str, dim, layers=1):
-        if gen_str not in self.generators.keys():
-            print("This is not a valid generator key with a defined graph structure")
+    def load_graph(self, dim, layers=1):
+        if self.gen_str is None:
             raise NotImplementedError
+
         try:
-            G = pickle.load(open(f"{gen_str}_n{layers}_d{dim}.dat", "rb"))
+            G = pickle.load(open(f"{self.gen_str}_n{layers}_d{dim}.dat", "rb"))
         except (OSError, IOError) as e:
-            G = self.generators[gen_str](dim, layers)
-            with open(f"{gen_str}_n{layers}_d{dim}.dat", "wb") as fi:
+            G = self.generators[self.gen_str](dim, layers)
+            with open(f"{self.gen_str}_n{layers}_d{dim}.dat", "wb") as fi:
                 pickle.dump(G, fi)
         return G
 
-    @staticmethod
-    def generate_fcc(dim, layers):
-        """
-        Generate a 3D fcc graph of size `dim` of Manhattan radius dim
-        edges and their weights are defined by the `weight_adj` structure.
 
-
-        Args:
-            dim (int): _description_
-            weight_adj (list): a list of list pairs of format [J, adjacency]
-        """
-        G = rx.PyGraph(multigraph=False)
-        f_atom_pos = BaseGraph._centered_fcc_lattice(dim)
-        node_indices = G.add_nodes_from(f_atom_pos)
-        weight_adj = BaseGraph._fcc_dipole_adj(layers)
-        for J, adj_layer in weight_adj:
-            for idxA in node_indices:
-                source = G.get_node_data(idxA)
-                counter = 0
-                for idxB in node_indices:
-                    target = G.get_node_data(idxB)
-                    if np.any(np.all(adj_layer == source - target, axis=1)):
-                        G.add_edge(idxA, idxB, J)
-                        counter += 1
-                    if counter == len(adj_layer):
-                        break
-        return G
+class GridGraph(BaseGraph):
+    def __init__(self):
+        super().__init__()
+        self.gen_str = "sc"
 
     @staticmethod
-    def generate_grid_graph(dim, layers):
+    def generate(dim, layers):
         """
         Generate a grid graph which is rectangular and of arbitrary dimension.
 
@@ -83,6 +67,38 @@ class BaseGraph:
                 Gnew = rx.generators.path_graph(dim[idx])
                 G, _ = rx.cartesian_product(Gnew, G)
 
+        return G
+
+
+class FccGraph(BaseGraph):
+    def __init__(self):
+        super().__init__()
+        self.gen_str = "fcc"
+
+    def generate(self, dim, layers):
+        """
+        Generate a 3D fcc graph of size `dim` of Manhattan radius dim
+        edges and their weights are defined by the `weight_adj` structure.
+
+        Args:
+            dim (int): _description_
+            weight_adj (list): a list of list pairs of format [J, adjacency]
+        """
+        G = rx.PyGraph(multigraph=False)
+        f_atom_pos = self._centered_fcc_lattice(dim)
+        node_indices = G.add_nodes_from(f_atom_pos)
+        weight_adj = self._fcc_dipole_adj(layers)
+        for J, adj_layer in weight_adj:
+            for idxA in node_indices:
+                source = G.get_node_data(idxA)
+                counter = 0
+                for idxB in node_indices:
+                    target = G.get_node_data(idxB)
+                    if np.any(np.all(adj_layer == source - target, axis=1)):
+                        G.add_edge(idxA, idxB, J)
+                        counter += 1
+                    if counter == len(adj_layer):
+                        break
         return G
 
     def _centered_fcc_lattice(r0):
