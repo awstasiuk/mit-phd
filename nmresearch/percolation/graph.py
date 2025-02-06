@@ -11,42 +11,43 @@ class ClassicalGraph:
     A description of what this class does
     """
 
-    def __init__(self):
-        self.base_graph = None
-
-    def generate_percolation_graph(p, generator, dim):
-        r"""
-        Generates a percolation graph with bond acceptance probability p,
-        with the dense graph being defined by the function `generator`. This
-        function will be called with the `dim` keyword. That seems like silly
-        design? Maybe? The idea is that the structure is defined by `generator`,
-        and the size of the structure is defined by `dim`. Obviously, `dim` and
-        `generator` need to play nicely together so this maybe isn't very
-        end-user friendly.
+    def __init__(self, base_graph):
         """
-        G = generator(dim).copy()
-        marked_edges = [edge if p < rand() else -1 for edge in G.edge_list()]
-        remove_list = (
-            [x for x in marked_edges if x != -1] if -1 in marked_edges else marked_edges
-        )
+        initialize things, doi
+
+        Args:
+            base_graph (BaseGraph): A graph wrapper with an implemented `generate`
+            function, like FccGraph or GridGraph
+        """
+        self.base_graph = base_graph
+
+    def generate_percolation_graph(self, p, dim, layers):
+        G = self.base_graph.load_graph(
+            dim, layers
+        ).copy()  # avoid potentially mutating the original
+
+        # if dice roll is less than given p-val, mark bond for removal
+        remove_list = [edge for edge, J in zip(G.edge_list(), G.edges()) if p < rand()]
+
+        # remove and return
         G.remove_edges_from(remove_list)
         return G
 
-    def avg_cluster_size(self, p, dim, generator, repititions=100):
+    def avg_cluster_size(self, p, dim, layers, repititions=100):
         r"""
         For a square graph of L*L nodes, compute the average cluster size,
         excluding the largest cluster. As L->infinity, this ensures that this
         function diverges at the phase transition, but nowhere else.
         """
         try:
-            G0 = generator(dim)
+            G0 = self.base_graph.load_graph(dim, layers)
         except Exception as e:
             print("generator and dim are mismatched")
             return
         sites = G0.num_nodes()
         counts = np.zeros(sites + 1, dtype=np.int64)
         for _ in range(repititions):
-            G = self.generate_percolation_graph(p, generator, dim)
+            G = self.generate_percolation_graph(p, dim, layers)
             comps = rx.connected_components(G)
             distro = [len(comp) for comp in comps]
             largest_local = np.max(distro)
@@ -59,7 +60,7 @@ class ClassicalGraph:
 
         return (bins**2 @ counts) / (bins @ counts) if bins @ counts != 0 else 0
 
-    def percolation_strength(self, p, dim, generator, repititions=100):
+    def percolation_strength(self, p, dim, layers, repititions=100):
         r"""
         For a square graph of L*L nodes, compute the percolation strength,
         which is the proportion of the graph belonging to the largest cluster,
@@ -67,25 +68,25 @@ class ClassicalGraph:
         """
         P = 0
         try:
-            G0 = generator(dim)
+            G0 = self.base_graph.load_graph(dim, layers)
         except Exception as e:
             print("generator and dim are mismatched")
             return
         sites = G0.num_nodes()
         for _ in range(repititions):
-            G = self.generate_percolation_graph(p, generator, dim)
+            G = self.generate_percolation_graph(p, dim, layers)
             distro = [len(comp) for comp in rx.connected_components(G)]
             largest_local = np.max(distro)
             P += largest_local / sites
         return P / repititions
 
-    def cluster_size_and_strength(self, p, dim, generator, repititions=100):
+    def cluster_size_and_strength(self, p, dim, layers, repititions=100):
         r"""
         return both the percolation strength and the average cluster size
         for the square L*L percolation graph as a tuple (size, strength)
         """
         try:
-            G0 = generator(dim)
+            G0 = self.base_graph.load_graph(dim, layers)
         except Exception as e:
             print("generator and dim are mismatched")
             return
@@ -93,7 +94,7 @@ class ClassicalGraph:
         counts = np.zeros(sites + 1, dtype=np.int64)
         P = 0
         for _ in range(repititions):
-            G = self.generate_percolation_graph(p, generator, dim)
+            G = self.generate_percolation_graph(p, dim, layers)
             distro = [len(comp) for comp in rx.connected_components(G)]
             largest_local = np.max(distro)
             P += largest_local / sites
@@ -112,6 +113,13 @@ class QuantumGraph:
     """
 
     def __init__(self, base_graph):
+        """
+        initialize things, doi
+
+        Args:
+            base_graph (BaseGraph): A graph wrapper with an implemented `generate`
+            function, like FccGraph or GridGraph
+        """
         self.base_graph = base_graph
 
     @cache
@@ -128,7 +136,7 @@ class QuantumGraph:
         function will be called with the `dim` keyword to determine its size, so these
         should be paired together.
         """
-        G = self.base_graph.generate(
+        G = self.base_graph.load_graph(
             dim, layers
         ).copy()  # avoid potentially mutating the original
 
@@ -145,7 +153,7 @@ class QuantumGraph:
         G.remove_edges_from(remove_list)
         return G
 
-    def avg_cluster_size(self, sigma, repititions, dim, layers):
+    def avg_cluster_size(self, sigma, dim, layers, repititions):
         """
 
 
@@ -159,7 +167,7 @@ class QuantumGraph:
             double: _description_
         """
         try:
-            G0 = self.base_graph.generate(dim, layers)
+            G0 = self.base_graph.load_graph(dim, layers)
         except Exception as e:
             print("generator-param combo is invalid")
             return
@@ -167,7 +175,7 @@ class QuantumGraph:
         sites = G0.num_nodes()
         counts = np.zeros(sites + 1, dtype=np.int64)
         for _ in range(repititions):
-            G = self.generate_percolation_graph(sigma, dim)
+            G = self.generate_percolation_graph(sigma, dim, layers)
             comps = rx.connected_components(G)
             distro = [len(comp) for comp in comps]
             largest_local = np.max(distro)
@@ -179,19 +187,19 @@ class QuantumGraph:
         bins = np.array(range(sites + 1))
         return (bins**2 @ counts) / (bins @ counts) if bins @ counts != 0 else 0
 
-    def percolation_strength(self, sigma, repititions, dim, layers):
+    def percolation_strength(self, sigma, dim, layers, repititions):
         r"""
         thots
         """
         P = 0
         try:
-            G0 = self.base_graph.generate(dim, layers)
+            G0 = self.base_graph.load_graph(dim, layers)
         except Exception as e:
             print("generator-param combo is invalid")
             return
         sites = G0.num_nodes()
         for _ in range(repititions):
-            G = self.generate_percolation_graph(sigma, dim)
+            G = self.generate_percolation_graph(sigma, dim, layers)
             distro = [len(comp) for comp in rx.connected_components(G)]
             largest_local = np.max(distro)
             P += largest_local / sites

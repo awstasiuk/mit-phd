@@ -24,6 +24,8 @@ import nmresearch.lanczos.lanczos
 import nmresearch.lanczos.op_basis
 import nmresearch.lanczos.utils
 import nmresearch.lanczos.hamiltonian
+import nmresearch.percolation.generators
+import nmresearch.percolation.graph
 
 
 from nmresearch.fermion.operator import Operator
@@ -40,3 +42,5 @@ from nmresearch.lanczos.lanczos import Lanczos
 from nmresearch.lanczos.hamiltonian import Hamiltonian
 from nmresearch.lanczos.op_basis import PauliMatrix, vec, devec
 from nmresearch.lanczos.utils import *
+from nmresearch.percolation.generators import BaseGraph, FccGraph, GridGraph
+from nmresearch.percolation.graph import ClassicalGraph, QuantumGraph

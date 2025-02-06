@@ -5,4 +5,8 @@ try:
 except DistributionNotFound:
     __version__ = "NotInstalledYet"
 
-import nmresearch.percolation
+import nmresearch.percolation.generators
+import nmresearch.percolation.graph
+
+from nmresearch.percolation.generators import *
+from nmresearch.percolation.graph import *

@@ -36,7 +36,7 @@ class BaseGraph:
         try:
             G = pickle.load(open(f"{self.gen_str}_n{layers}_d{dim}.dat", "rb"))
         except (OSError, IOError) as e:
-            G = self.generators[self.gen_str](dim, layers)
+            G = self.generate(dim, layers)
             with open(f"{self.gen_str}_n{layers}_d{dim}.dat", "wb") as fi:
                 pickle.dump(G, fi)
         return G

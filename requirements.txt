@@ -6,3 +6,4 @@ pfapack
 nmrglue
 scikit-learn
 rustworkx
+seaborn
