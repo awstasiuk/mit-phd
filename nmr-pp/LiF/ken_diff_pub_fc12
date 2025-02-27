@@ -33,6 +33,7 @@ delay1
 (p1 ph4^):f2
 delay0
 
+
 lo to 3 times 15
 
 (p1 ph5):f2
@@ -58,7 +59,6 @@ tau2
 tau1
 
 lo to 4 times l1
-
 (p1 ph10):f2
 1.5u
 

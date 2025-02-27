@@ -9,6 +9,7 @@ and a
 `pip install -e .`
 
 If you wish to push changes, please format using python-black. For ease of use, you can
-auto-format in Atom using linters and user defined packages. Be sure to install
+auto-format in using linters and user defined packages. Be sure to install
 `pip install black`
-to the same environment which will run Atom.
+to the same environment which will run you IDE. VSCode has great extensions for doing
+this automatically on save
