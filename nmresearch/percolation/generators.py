@@ -101,7 +101,7 @@ class FccGraph(BaseGraph):
                         break
         return G
 
-    def _centered_fcc_lattice(r0):
+    def _centered_fcc_lattice(self, r0):
         r"""
         Generate an array containing all of the positions of fluorine atoms in a LiF lattice which
         extends from -r0 to r0 in all directions. If r0 is even, this contains the point (0,0,0),

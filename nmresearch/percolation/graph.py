@@ -123,7 +123,7 @@ class QuantumGraph:
         self.base_graph = base_graph
 
     @cache
-    def mean_hopping_prob(sigma, J=1):
+    def mean_hopping_prob(self, sigma, J=1):
         y = J / (4 * sigma)
         return y * np.sqrt(np.pi) * np.exp(y**2) * sp.special.erfc(y)
 
