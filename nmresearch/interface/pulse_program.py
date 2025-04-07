@@ -297,7 +297,7 @@ class TwoPointCorrelator:
         else:
             print("Observable is already defined")
 
-    def generate_phase_programs(self, fc=0, evo_max=1, print_me=True):
+    def generate_phase_programs(self, fc, T0, Tf, print_me=True):
         """
         Generate the phase programs in the bruker format, printing the generated
         lists of strings in a nice way
@@ -376,7 +376,7 @@ class TwoPointCorrelator:
         shifts = [
             [
                 glb_phase + fc * (ph_prog_len * i + k)
-                for i in range(evo_max * ph_prog_depth)
+                for i in range((Tf - T0) * ph_prog_depth)
             ]
             for k in range(ph_prog_len)
         ]
@@ -392,7 +392,7 @@ class TwoPointCorrelator:
                 f"ph{idx + self.evo_range[0]} = (360) " + " ".join(to_str(phases))
             )
             reset_list.append(f"rpp{idx+self.evo_range[0]}")
-
+        glb_phase += evo_ph_delta * T0
         pp_list.append("")
 
         # do the observable prep pulses
@@ -465,7 +465,7 @@ class TwoPointCorrelator:
         else:
             return reset_list, update_list, pp_list
 
-    def generate_pulse_program(self, fc=0, evo_max=1, filename=None):
+    def generate_pulse_program(self, fc=0, T0=0, Tf=25, filename=None):
         """
         Generates a full bruker pulse program for a two point correlator experiment,
         as described by this class. The entire pulse program is printed as a string and
@@ -479,7 +479,7 @@ class TwoPointCorrelator:
         quantity
         """
         reset_list, update_list, pp_list = self.generate_phase_programs(
-            fc, evo_max, print_me=False
+            fc, T0, Tf, print_me=False
         )
         #####
         # Header stuff
@@ -490,7 +490,7 @@ class TwoPointCorrelator:
             delay = ddef.split("=")[0]
             header_list.append(f"define delay {delay}")
             header_list.append('"' + ddef + '"')
-        header_list.append('"l1=0"  ; start the evolution counter at 0')
+        header_list.append(f'"l1={T0}"  ; start the evolution counter at 0')
         header_list.append("")
         header_list.append("1   ze")
         header_list.append("")
