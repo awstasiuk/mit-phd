@@ -376,7 +376,7 @@ class TwoPointCorrelator:
         shifts = [
             [
                 glb_phase + fc * (ph_prog_len * i + k)
-                for i in range((Tf - T0) * ph_prog_depth)
+                for i in range(Tf * ph_prog_depth)
             ]
             for k in range(ph_prog_len)
         ]
@@ -392,7 +392,7 @@ class TwoPointCorrelator:
                 f"ph{idx + self.evo_range[0]} = (360) " + " ".join(to_str(phases))
             )
             reset_list.append(f"rpp{idx+self.evo_range[0]}")
-        glb_phase += evo_ph_delta * T0
+        glb_phase += evo_ph_delta*T0
         pp_list.append("")
 
         # do the observable prep pulses
@@ -490,7 +490,14 @@ class TwoPointCorrelator:
             delay = ddef.split("=")[0]
             header_list.append(f"define delay {delay}")
             header_list.append('"' + ddef + '"')
-        header_list.append(f'"l1={T0}"  ; start the evolution counter at 0')
+        # a bit of chaos to allow arbitrary start points
+        prog = array(self.phase_programs[self.evo_range[0] : self.evo_range[1] + 1])
+        ph_prog_len = len(prog)
+        ph_prog_depth = len(prog[0])
+        loops_per_pp = (ph_prog_depth * ph_prog_len) // (len(self.evo_pattern) - 1)
+        header_list.append(f'"l1={T0*loops_per_pp}"  ; start the evolution counter at {T0}')
+        
+        # continuing onwards..
         header_list.append("")
         header_list.append("1   ze")
         header_list.append("")

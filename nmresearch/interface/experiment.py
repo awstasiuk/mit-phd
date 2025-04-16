@@ -211,15 +211,19 @@ class Experiment:
 
         return vals
 
-    def load_tpc(self, use_real=True, dipolar=False, normalize=True):
+    def load_tpc(self, use_real=True, dipolar=False, normalize=True, error_bar=False):
         if not dipolar:
             vals = real(self.nmr_data[:, 0]) if use_real else imag(self.nmr_data[:, 0])
         else:
             vals = imag(self.nmr_data[:, 1])
 
+        errs = np.std(np.real(self.nmr_data)[:,-50:-1],axis=1)
+
         if normalize:
             vals = vals / vals[0]
-
+            errs = errs / vals[0]
+        if error_bar:
+            return  vals,errs
         return vals
 
     def load_tpc3d(self, use_real=True, dipolar=False, normalize=True):

@@ -5,15 +5,15 @@ try:
 except DistributionNotFound:
     __version__ = "NotInstalledYet"
 
-import nmresearch.fermion
+# import nmresearch.fermion
 import nmresearch.interface
 import nmresearch.crystal
 import nmresearch.percolation
 
-import nmresearch.fermion.operator
-import nmresearch.fermion.majorana
-import nmresearch.fermion.math
-import nmresearch.fermion.unitary
+# import nmresearch.fermion.operator
+# import nmresearch.fermion.majorana
+# import nmresearch.fermion.math
+# import nmresearch.fermion.unitary
 import nmresearch.interface.experiment
 import nmresearch.interface.pp_gen
 import nmresearch.interface.pulse_program
@@ -28,10 +28,10 @@ import nmresearch.percolation.generators
 import nmresearch.percolation.graph
 
 
-from nmresearch.fermion.operator import Operator
-from nmresearch.fermion.majorana import PauliString, MajoranaString
-from nmresearch.fermion.math import Math
-from nmresearch.fermion.unitary import Unitary
+# from nmresearch.fermion.operator import Operator
+# from nmresearch.fermion.majorana import PauliString, MajoranaString
+# from nmresearch.fermion.math import Math
+# from nmresearch.fermion.unitary import Unitary
 from nmresearch.interface.experiment import Experiment
 from nmresearch.interface.pp_gen import PulseProgram
 from nmresearch.interface.pulse_program import TwoPointCorrelator
