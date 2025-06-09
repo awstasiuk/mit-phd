@@ -48,6 +48,20 @@ class Hamiltonian:
                     - 0.5 * (p.sigmaX(i) @ p.sigmaX(j) + p.sigmaZ(i) @ p.sigmaZ(j))
                 )
         self.ham = h
+        
+    def H_dipolar_chain(self, J=1):
+        L = self.sites
+        d = self.dim
+        p = self.paulis
+        h = self.ham
+        if h is None:
+            h = csr_matrix((d, d), dtype=complex128)
+        for i in range(L - 1):
+            h = h + J * (
+                p.sigmaZ(i) @ p.sigmaZ(i + 1)
+                - 0.5 * (p.sigmaX(i) @ p.sigmaX(i + 1) + p.sigmaY(i) @ p.sigmaY(i + 1))
+            )
+        self.ham = h
 
     def H_dipolar_sphere(self, scrambling=False):
         L = self.sites
