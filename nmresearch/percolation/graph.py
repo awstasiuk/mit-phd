@@ -105,6 +105,48 @@ class ClassicalGraph:
             counts += temp_counts
         bins = np.array(range(sites + 1))
         return (bins**2 @ counts) / (bins @ counts), P
+    
+    def monte_carlo_random_walk(self, p, dim, layers, steps=1000, walkers=100, repititions=100):
+        """
+        Perform a Monte Carlo study of a random walker on the percolation graph.
+        
+        AI Halucinated two functions that need to be implemented: node_coordinates and neighbors
+        
+        Args:
+            p (float): Bond cutting probability.
+            dim (int): Graph dimension.
+            layers (int): Number of layers.
+            steps (int): Number of steps per walker.
+            walkers (int): Number of walkers per repetition.
+            repititions (int): Number of percolation graph realizations.
+        Returns:
+            np.ndarray: Mean squared displacement at each step.
+        """
+        try:
+            G0 = self.base_graph.load_graph(dim, layers)
+        except Exception as e:
+            print("generator and dim are mismatched")
+            return
+
+        sites = G0.num_nodes()
+        msd = np.zeros(steps + 1)
+        for _ in range(repititions):
+            G = self.generate_percolation_graph(p, dim, layers)
+            node_list = list(G.node_indices())
+            positions = np.array([G0.node_coordinates(n) for n in node_list])
+            for _ in range(walkers):
+                current = np.random.choice(node_list)
+                traj = [positions[node_list.index(current)]]
+                for _ in range(steps):
+                    neighbors = list(G.neighbors(current))
+                    if neighbors:
+                        current = np.random.choice(neighbors)
+                    traj.append(positions[node_list.index(current)])
+                traj = np.array(traj)
+                disp = traj - traj[0]
+                msd += np.sum(disp**2, axis=1)
+        msd /= (walkers * repititions)
+        return msd
 
 
 class QuantumGraph:

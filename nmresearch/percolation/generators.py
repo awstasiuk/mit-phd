@@ -81,7 +81,7 @@ class FccGraph(BaseGraph):
         edges and their weights are defined by the `weight_adj` structure.
 
         Args:
-            dim (int): _description_
+            dim (int): radius of fcc lattice, a positive integer
             weight_adj (list): a list of list pairs of format [J, adjacency]
         """
         G = rx.PyGraph(multigraph=False)
