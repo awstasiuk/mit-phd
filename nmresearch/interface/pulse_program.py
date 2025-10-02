@@ -87,17 +87,30 @@ class TwoPointCorrelator:
         self.idx = 0
         self.delay_defs = []
 
+        # state containers
         self.state_is_set = False
         self.prep_loop = None
         self.prep_pattern = None
 
+        # evolution containers
+        self.evo_is_set = False
+        self.evo_range = None
+        self.evo_pattern = None
+        
+        # kicking containers (optional)
+        self.kick_is_set = False
+        self.loop_kick = False
+        
+        # time reversal containers (optional)
+        self.rev_is_set = False
+        self.rev_range = None
+        self.rev_pattern = None
+        
+        # observable containers
         self.obs_is_set = False
         self.obs_loop = None
         self.obs_pattern = None
 
-        self.evo_is_set = False
-        self.evo_range = None
-        self.evo_pattern = None
 
     def set_prep_pattern(self, pattern, definitions):
         """
@@ -226,6 +239,67 @@ class TwoPointCorrelator:
             self.evo_is_set = True
         else:
             print("inner evolution loop has already been defined")
+            
+    def set_kick(self, axis, angle, loop_kick=False):
+        """
+        set a global kick pulse to be applied at the beginning of each evolution cycle
+        """
+        if not self.kick_is_set:
+            
+            if loop_kick:
+                if 360 % angle == 0: 
+                    self.num_kicks = (360 // angle)
+                    self.loop_kick = loop_kick
+                else:
+                    print("Invalid angle for a looped kick, must divide 360 degrees evenly")
+                    return
+            match axis:
+                case "X":
+                    # YZY encoding for x(theta)
+                    self.phase_programs[self.idx] = [90, 270]
+                    self.kick_shift = angle
+                    self.phase_programs[self.idx] = [270 + angle*(not loop_kick), 90+ angle*(not loop_kick)]
+                    
+                    self.kick_range = (self.idx, self.idx + 1)
+                    self.idx += 2
+
+                case "Y":
+                    # XZX encoding for y(theta)
+                    self.phase_programs[self.idx] = [180, 0]
+                    self.kick_shift = angle
+                    self.phase_programs[self.idx] = [0+ angle*(not loop_kick), 180+ angle*(not loop_kick)]
+                    
+                    self.kick_range = (self.idx, self.idx + 1)
+                    self.idx += 2
+
+                case "Z":
+                    # just a phase shift in z, no actual pulse
+                    self.kick_shift = angle
+                    self.kick_range = None
+                    
+                case _:
+                    print("Command not recognized")
+                    return
+            self.kick_is_set = True
+            
+        else:
+            print("Kick pulse has already been defined")
+            
+    def set_reversal(self, pulses, num_programs=None):
+        """
+        set the evolution phase program for the interior loop
+        """
+        if not self.rev_is_set:
+            rows = len(pulses) if num_programs is None else num_programs
+            prog = reshape_pp(pulses, rows)
+            for offset, row in enumerate(prog):
+                self.phase_programs[self.idx + offset] = row
+
+            self.rev_range = (self.idx, self.idx + len(prog) - 1)
+            self.idx += len(prog)
+            self.rev_is_set = True
+        else:
+            print("inner time reversal loop has already been defined")
 
     def set_global_observable(self, obs="Z"):
         """
@@ -299,7 +373,7 @@ class TwoPointCorrelator:
 
     def generate_phase_programs(self, fc, T0, Tf, print_me=True):
         """
-        Generate the phase programs in the bruker format, printing the generated
+        Generate the phase programs in the bruker format, preparing the generated
         lists of strings in a nice way
 
         `fc` is the frame change angle to correct for phase transient errors
@@ -394,6 +468,52 @@ class TwoPointCorrelator:
             reset_list.append(f"rpp{idx+self.evo_range[0]}")
         glb_phase += evo_ph_delta*T0
         pp_list.append("")
+        
+        # do the kicking steps
+        if self.kick_is_set:
+            if self.kick_range is not None:
+                for idx in range(self.kick_range[0], self.kick_range[1]):
+                    arr = array(self.phase_programs[idx])
+                    pp_list.append(
+                        f"ph{idx} = (360) " + " ".join(to_str((arr + glb_phase) % 360))
+                    )
+                    update_list.append(f"25m ip{idx}*{evo_ph_delta}")
+                    glb_phase += fc
+        
+            # track the z-rotation
+            # glb_phase += self.kick_shift
+            # glb_phase = glb_phase % 360
+
+            pp_list.append("")
+
+        # do the time reversal steps
+        if self.rev_is_set:
+            prog = array(self.phase_programs[self.rev_range[0] : self.rev_range[1] + 1])
+            ph_prog_len = len(prog)
+            ph_prog_depth = len(prog[0])
+            n_pulses = ph_prog_depth * ph_prog_len
+            evo_ph_delta = (n_pulses * fc) % 360
+            shifts = [
+                [
+                    glb_phase + fc * (ph_prog_len * i + k)
+                    for i in range(Tf * ph_prog_depth)
+                ]
+                for k in range(ph_prog_len)
+            ]
+            prog_shifted = [
+                [
+                    (prog[k][idx % ph_prog_depth] + shift) % 360
+                    for idx, shift in enumerate(shifts[k])
+                ]
+                for k in range(ph_prog_len)
+            ]
+            for idx, phases in enumerate(prog_shifted):
+                pp_list.append(
+                    f"ph{idx + self.rev_range[0]} = (360) " + " ".join(to_str(phases))
+                )
+                reset_list.append(f"rpp{idx+self.rev_range[0]}")
+            glb_phase += evo_ph_delta*T0
+            pp_list.append("")
 
         # do the observable prep pulses
         if self.evo_range[1] + 1 < self.idx:
@@ -569,6 +689,38 @@ class TwoPointCorrelator:
         evo_list.append("")
         evo_list.append("lo to 4 times l1")
         evo_list.append("")
+        
+        #####
+        # Kicking Logic
+        #####
+        kick_list = []
+        if self.kick_is_set:
+            if self.kick_range is not None:
+                for idx in range(self.kick_range[0], self.kick_range[1]):
+                    kick_list.append(f"(p1 ph{idx}):f2")
+                    kick_list.append("1.5u")
+                evo_list.append("")
+            # if the kick is a z-rotation, there is nothing to do here
+        
+        #####
+        # Time Reversal Logic
+        #####
+        rev_list = []
+        if self.rev_is_set:
+            prog = array(self.phase_programs[self.rev_range[0] : self.rev_range[1] + 1])
+            ph_prog_len = len(prog)
+            ph_prog_depth = len(prog[0])
+            loops_per_pp = (ph_prog_depth * ph_prog_len) // (len(self.rev_pattern) - 1)
+
+            rev_list.append("6")
+            rev_list.append(self.rev_pattern[0])
+            for idx, delay in enumerate(self.rev_pattern[1:]):
+                rev_list.append(f"(p1 ph{self.rev_range[0] + (idx % ph_prog_len)}^):f2")
+                rev_list.append(delay)
+
+            rev_list.append("")
+            rev_list.append("lo to 6 times l1")
+            rev_list.append("")
 
         #####
         # Observable Logic
@@ -591,7 +743,7 @@ class TwoPointCorrelator:
                 loops_per_obs = (ph_prog_depth * ph_prog_len) // (
                     len(self.obs_pattern) - 1
                 )
-                obs_list.append("5")
+                obs_list.append("7")
                 obs_list.append(self.obs_pattern[0])
                 for idx, delay in enumerate(self.obs_pattern[1:]):
                     obs_list.append(f"(p1 ph{(idx+self.obs_loop[0])}^):f2")
@@ -599,7 +751,7 @@ class TwoPointCorrelator:
 
                 obs_list.append("")
 
-                obs_list.append(f"lo to 5 times {loops_per_obs}")
+                obs_list.append(f"lo to 7 times {loops_per_obs}")
 
                 obs_list.append("")
 
@@ -627,7 +779,10 @@ class TwoPointCorrelator:
         meas_list.append("go=2 ph31")
         meas_list.append("1m wr #0 if #0")
         meas_list.append("")
-        # incremenent the evolution loop...
+        
+        
+        
+        # incremenent the evolution loop(s)...
         for _ in range(loops_per_pp):
             meas_list.append("iu1")
         meas_list.append("")
