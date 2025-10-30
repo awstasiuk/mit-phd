@@ -110,6 +110,18 @@ class TwoPointCorrelator:
         self.obs_is_set = False
         self.obs_loop = None
         self.obs_pattern = None
+        
+        # optional parameters
+        self.ph_ptr_delay = 25 # default delay for incrementing phase programs of 25 ms
+        
+    def set_phase_increment_delay(self, delay_ms):
+        """
+        set the delay (in ms) for phase program increments between measurements
+        The bruker manual incorrectly predicts the length, it does not scale linearly
+        with the number of enntries in the phase program, so this value is usually
+        25ms for long 2D experiments, and 50ms for some 3D experiments.
+        """
+        self.ph_ptr_delay = delay_ms
 
 
     def set_prep_pattern(self, pattern, definitions):
@@ -142,6 +154,19 @@ class TwoPointCorrelator:
             if delay not in self.delay_defs:
                 self.delay_defs.append(delay)
         self.evo_pattern = pattern
+        
+    def set_rev_pattern(self, pattern, definitions):
+        """
+        this should check stuff and save things
+        """
+        if self.rev_range is None:
+            print("Specify reverse evolution sequence first")
+            return
+
+        for delay in definitions:
+            if delay not in self.delay_defs:
+                self.delay_defs.append(delay)
+        self.rev_pattern = pattern
 
     def set_obs_pattern(self, pattern, definitions):
         """
@@ -258,7 +283,7 @@ class TwoPointCorrelator:
                     # YZY encoding for x(theta)
                     self.phase_programs[self.idx] = [90, 270]
                     self.kick_shift = angle
-                    self.phase_programs[self.idx] = [270 + angle*(not loop_kick), 90+ angle*(not loop_kick)]
+                    self.phase_programs[self.idx+1] = [270 + angle*(not loop_kick), 90+ angle*(not loop_kick)]
                     
                     self.kick_range = (self.idx, self.idx + 1)
                     self.idx += 2
@@ -267,7 +292,7 @@ class TwoPointCorrelator:
                     # XZX encoding for y(theta)
                     self.phase_programs[self.idx] = [180, 0]
                     self.kick_shift = angle
-                    self.phase_programs[self.idx] = [0+ angle*(not loop_kick), 180+ angle*(not loop_kick)]
+                    self.phase_programs[self.idx+1] = [0+ angle*(not loop_kick), 180+ angle*(not loop_kick)]
                     
                     self.kick_range = (self.idx, self.idx + 1)
                     self.idx += 2
@@ -371,7 +396,7 @@ class TwoPointCorrelator:
         else:
             print("Observable is already defined")
 
-    def generate_phase_programs(self, fc, T0, Tf, print_me=True):
+    def generate_phase_programs(self, fc, T0, Tf):
         """
         Generate the phase programs in the bruker format, preparing the generated
         lists of strings in a nice way
@@ -386,7 +411,8 @@ class TwoPointCorrelator:
             return "experiment is not yet fully defined"
 
         pp_list = []
-        update_list = []
+        outer_update_list = []
+        inner_update_list = []
         reset_list = []
         glb_phase = 0
 
@@ -446,7 +472,7 @@ class TwoPointCorrelator:
         ph_prog_len = len(prog)
         ph_prog_depth = len(prog[0])
         n_pulses = ph_prog_depth * ph_prog_len
-        evo_ph_delta = (n_pulses * fc) % 360
+        evo_ph_delta_fwd = (n_pulses * fc) % 360
         shifts = [
             [
                 glb_phase + fc * (ph_prog_len * i + k)
@@ -466,33 +492,42 @@ class TwoPointCorrelator:
                 f"ph{idx + self.evo_range[0]} = (360) " + " ".join(to_str(phases))
             )
             reset_list.append(f"rpp{idx+self.evo_range[0]}")
-        glb_phase += evo_ph_delta*T0
+        glb_phase += evo_ph_delta_fwd*T0
         pp_list.append("")
         
         # do the kicking steps
+        kick_ph=0
         if self.kick_is_set:
             if self.kick_range is not None:
-                for idx in range(self.kick_range[0], self.kick_range[1]):
+                for idx in range(self.kick_range[0], self.kick_range[1]+1):
                     arr = array(self.phase_programs[idx])
                     pp_list.append(
                         f"ph{idx} = (360) " + " ".join(to_str((arr + glb_phase) % 360))
                     )
-                    update_list.append(f"25m ip{idx}*{evo_ph_delta}")
+                    outer_update_list.append(f"{self.ph_ptr_delay}m ip{idx}*{evo_ph_delta_fwd}")
                     glb_phase += fc
-        
-            # track the z-rotation
-            # glb_phase += self.kick_shift
+                    
+                # if we are doing a physical rotation, make sure to increment the phase of the second pulse
+                inner_update_list.append(f"{self.ph_ptr_delay}m ip{self.kick_range[1]}*{self.kick_shift}")
+            # track the initial angle of the z-rotation
+            # TODO: Replace 0 with initial phase of kick.
+            kick_ph += 0 * self.kick_shift
             # glb_phase = glb_phase % 360
 
             pp_list.append("")
+            
+        # keeps track of the first z-rotation component of the kick
+        # currently does nothing (adds zero), but is here for future use
+        glb_phase += kick_ph
 
         # do the time reversal steps
+        evo_ph_delta_rev = 0
         if self.rev_is_set:
             prog = array(self.phase_programs[self.rev_range[0] : self.rev_range[1] + 1])
             ph_prog_len = len(prog)
             ph_prog_depth = len(prog[0])
             n_pulses = ph_prog_depth * ph_prog_len
-            evo_ph_delta = (n_pulses * fc) % 360
+            evo_ph_delta_rev += (n_pulses * fc) % 360
             shifts = [
                 [
                     glb_phase + fc * (ph_prog_len * i + k)
@@ -512,18 +547,24 @@ class TwoPointCorrelator:
                     f"ph{idx + self.rev_range[0]} = (360) " + " ".join(to_str(phases))
                 )
                 reset_list.append(f"rpp{idx+self.rev_range[0]}")
-            glb_phase += evo_ph_delta*T0
+                # extra fwd evo cycle plus kick phase
+                outer_update_list.append(f"{self.ph_ptr_delay}m ip{idx + self.rev_range[0]}*{evo_ph_delta_fwd}")
+                # increment rotation of kicking phase
+                inner_update_list.append(f"{self.ph_ptr_delay}m ip{idx + self.rev_range[0]}*{self.kick_shift}")
+            glb_phase += evo_ph_delta_rev*T0
             pp_list.append("")
 
         # do the observable prep pulses
-        if self.evo_range[1] + 1 < self.idx:
+        last_evo_idx = self.evo_range[1] if not self.rev_is_set else self.rev_range[1]
+        if last_evo_idx + 1 < self.idx:
             if self.obs_loop is not None:
-                for idx in range(self.evo_range[1] + 1, self.obs_loop[0]):
+                for idx in range(last_evo_idx + 1, self.obs_loop[0]):
                     arr = array(self.phase_programs[idx])
                     pp_list.append(
                         f"ph{idx} = (360) " + " ".join(to_str((arr + glb_phase) % 360))
                     )
-                    update_list.append(f"25m ip{idx}*{evo_ph_delta}")
+                    outer_update_list.append(f"{self.ph_ptr_delay}m ip{idx}*{evo_ph_delta_fwd+evo_ph_delta_rev}")
+                    inner_update_list.append(f"{self.ph_ptr_delay}m ip{idx}*{self.kick_shift}")
                     glb_phase += fc
 
                 pp_list.append("")
@@ -545,7 +586,8 @@ class TwoPointCorrelator:
                         f"ph{idx + self.obs_loop[0]} = (360) "
                         + " ".join(to_str(phases % 360))
                     )
-                    update_list.append(f"25m ip{idx + self.obs_loop[0]}*{evo_ph_delta}")
+                    outer_update_list.append(f"{self.ph_ptr_delay}m ip{idx + self.obs_loop[0]}*{evo_ph_delta_fwd+evo_ph_delta_rev}")
+                    inner_update_list.append(f"{self.ph_ptr_delay}m ip{idx + self.obs_loop[0]}*{self.kick_shift}")
                     reset_list.append(f"rpp{idx+self.obs_loop[0]}")
                 glb_phase += fc * rows * depth
 
@@ -556,16 +598,17 @@ class TwoPointCorrelator:
                     pp_list.append(
                         f"ph{idx} = (360) " + " ".join(to_str((arr + glb_phase) % 360))
                     )
-                    update_list.append(f"25m ip{idx}*{evo_ph_delta}")
+                    outer_update_list.append(f"{self.ph_ptr_delay}m ip{idx}*{evo_ph_delta_fwd+evo_ph_delta_rev}")
                     glb_phase += fc
 
             else:
-                for idx in range(self.evo_range[1] + 1, self.idx):
+                for idx in range(last_evo_idx + 1, self.idx):
                     arr = array(self.phase_programs[idx])
                     pp_list.append(
                         f"ph{idx} = (360) " + " ".join(to_str((arr + glb_phase) % 360))
                     )
-                    update_list.append(f"25m ip{idx}*{evo_ph_delta}")
+                    outer_update_list.append(f"{self.ph_ptr_delay}m ip{idx}*{evo_ph_delta_fwd+evo_ph_delta_rev}")
+                    inner_update_list.append(f"{self.ph_ptr_delay}m ip{idx}*{self.kick_shift}")
                     glb_phase += fc
 
             pp_list.append("")
@@ -576,14 +619,7 @@ class TwoPointCorrelator:
 
         pp_list.append(f"ph30 = (360) " + " ".join(to_str(self.phase_programs[-2])))
         pp_list.append(f"ph31 = " + " ".join(to_str(self.phase_programs[-1])))
-        if print_me:
-            print("d1 " + " ".join(reset_list))
-            print("")
-            print(f"\n".join(update_list))
-            print("")
-            print(f"\n".join(pp_list))
-        else:
-            return reset_list, update_list, pp_list
+        return reset_list, outer_update_list, inner_update_list, pp_list
 
     def generate_pulse_program(self, fc=0, T0=0, Tf=25, filename=None):
         """
@@ -598,8 +634,8 @@ class TwoPointCorrelator:
         pre-compile. If `fc`!=0, then td2 of the TPC experiment should not exceed this
         quantity
         """
-        reset_list, update_list, pp_list = self.generate_phase_programs(
-            fc, T0, Tf, print_me=False
+        reset_list, outer_update_list, inner_update_list, pp_list = self.generate_phase_programs(
+            fc, T0, Tf
         )
         #####
         # Header stuff
@@ -696,10 +732,10 @@ class TwoPointCorrelator:
         kick_list = []
         if self.kick_is_set:
             if self.kick_range is not None:
-                for idx in range(self.kick_range[0], self.kick_range[1]):
+                for idx in range(self.kick_range[0], self.kick_range[1]+1):
                     kick_list.append(f"(p1 ph{idx}):f2")
                     kick_list.append("1.5u")
-                evo_list.append("")
+                kick_list.append("")
             # if the kick is a z-rotation, there is nothing to do here
         
         #####
@@ -727,9 +763,10 @@ class TwoPointCorrelator:
         #####
         obs_list = []
 
-        if self.evo_range[1] + 1 < self.idx:
+        last_prog_idx = self.evo_range[1] if not self.rev_is_set else self.rev_range[1]
+        if last_prog_idx + 1 < self.idx:
             if self.obs_loop is not None:
-                for idx in range(self.evo_range[1] + 1, self.obs_loop[0]):
+                for idx in range(last_prog_idx + 1, self.obs_loop[0]):
                     obs_list.append(f"(p1 ph{idx}):f2")
                     obs_list.append("1.5u")
 
@@ -761,7 +798,7 @@ class TwoPointCorrelator:
 
                 obs_list.append("")
             else:
-                for idx in range(self.evo_range[1] + 1, self.idx):
+                for idx in range(last_prog_idx + 1, self.idx):
                     obs_list.append(f"(p1 ph{idx}):f2")
                     obs_list.append("1.5u")
                 obs_list.append("")
@@ -781,12 +818,17 @@ class TwoPointCorrelator:
         meas_list.append("")
         
         
-        
+        if self.loop_kick:
+            meas_list.extend(inner_update_list)
+            meas_list.append("")
+            meas_list.append("lo to 2 times td2")
+            meas_list.append("")
+            
         # incremenent the evolution loop(s)...
         for _ in range(loops_per_pp):
-            meas_list.append("iu1")
+            meas_list.append("1m iu1")
         meas_list.append("")
-        meas_list.extend(update_list)
+        meas_list.extend(outer_update_list)
         meas_list.append("")
         meas_list.append("lo to 2 times td1")
         meas_list.append("")
@@ -796,6 +838,8 @@ class TwoPointCorrelator:
         print(f"\n".join(header_list))
         print(f"\n".join(state_list))
         print(f"\n".join(evo_list))
+        print(f"\n".join(kick_list))
+        print(f"\n".join(rev_list))
         print(f"\n".join(obs_list))
         print(f"\n".join(meas_list))
         print(f"\n".join(pp_list))
@@ -805,6 +849,8 @@ class TwoPointCorrelator:
             f.write(f"\n".join(header_list))
             f.write(f"\n".join(state_list))
             f.write(f"\n".join(evo_list))
+            f.write(f"\n".join(kick_list))
+            f.write(f"\n".join(rev_list))
             f.write(f"\n".join(obs_list))
             f.write(f"\n".join(meas_list))
             f.write(f"\n".join(pp_list))

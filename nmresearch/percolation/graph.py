@@ -112,6 +112,8 @@ class ClassicalGraph:
         
         AI Halucinated two functions that need to be implemented: node_coordinates and neighbors
         
+        This was implemented via notebook instead of proper development
+        
         Args:
             p (float): Bond cutting probability.
             dim (int): Graph dimension.
